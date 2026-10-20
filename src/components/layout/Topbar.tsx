@@ -1,38 +1,37 @@
 'use client';
 
 import React from 'react';
-import { useHangout, HangoutPageKey } from '@/context/HangoutContext';
-import { Menu, Plus, RefreshCw, Sparkles } from 'lucide-react';
+import { useHangout } from '@/context/HangoutContext';
+import { HangoutPageKey } from '@/types/hangout';
+import { Menu, Plus, RefreshCw, Sparkles, ClipboardList } from 'lucide-react';
 
 interface TopbarProps {
   onOpenSidebar: () => void;
   onOpenNewService?: () => void;
-  onOpenNewVisitor?: () => void;
+  onOpenVisitorCard?: () => void;
 }
 
 const PAGE_TITLES: Record<HangoutPageKey, { title: string; subtitle: string }> = {
-  dashboard: { title: 'Dashboard Geral', subtitle: 'Indicadores oficiais e crescimento do ministério' },
-  services: { title: 'Gestão de Cultos', subtitle: 'Registro, conferência e aprovação dos cultos' },
-  ministries: { title: 'Gestão de Ministérios', subtitle: 'Times de serviço, líderes e voluntários' },
-  volunteers: { title: 'Base Geral de Voluntários', subtitle: 'Histórico individual de escalas e serviço' },
-  visitors: { title: 'Visitantes por Culto', subtitle: 'Recepção, contatos e voluntários captadores' },
-  decisions: { title: 'Decisões e Batismo', subtitle: 'Aceitaram Jesus, reconciliações e passos de fé' },
-  integration: { title: 'Acompanhamento de Vidas', subtitle: 'Funil de integração de novas pessoas' },
-  reports: { title: 'Relatórios & Histórico', subtitle: 'Análises mensais e evolução dos cultos' },
-  approvals: { title: 'Painel de Aprovações', subtitle: 'Revisão, devolução e auditoria de registros' },
+  dashboard: { title: 'Dashboard Geral', subtitle: 'Métricas oficiais de cultos, presenças, decisões e voluntários' },
+  services: { title: 'Dados de Cultos', subtitle: 'Registros detalhados por data: presentes, visitantes, decisões e equipe' },
+  visitor_card: { title: 'Ficha do Visitante', subtitle: 'Preenchimento oficial para voluntários em serviço no Hangout' },
+  ministries: { title: '10 Ministérios Oficiais', subtitle: 'Hangout, Staff, Projeção, Stories, Fotos, Infra, Gestão, Profético, Músicos, Ministração' },
+  volunteers: { title: 'Base Geral de Voluntários', subtitle: 'Escalas de serviço e participação nos cultos' },
+  reports: { title: 'Relatórios Mensais', subtitle: 'Análises detalhadas mês a mês e exportação de dados' },
+  approvals: { title: 'Painel de Aprovações', subtitle: 'Revisão, devolução e auditoria de registros da liderança' },
 };
 
 export const Topbar: React.FC<TopbarProps> = ({ 
   onOpenSidebar,
   onOpenNewService,
-  onOpenNewVisitor
+  onOpenVisitorCard
 }) => {
   const { activeTab, refreshData, loading } = useHangout();
   const current = PAGE_TITLES[activeTab] || PAGE_TITLES.dashboard;
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3.5 backdrop-blur-md sm:px-6 lg:px-8">
-      {/* Lado Esquerdo: Botão Menu + Título da Página */}
+      {/* Lado Esquerdo */}
       <div className="flex items-center gap-3">
         <button
           onClick={onOpenSidebar}
@@ -57,7 +56,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         </div>
       </div>
 
-      {/* Lado Direito: Ações Rápidas */}
+      {/* Lado Direito */}
       <div className="flex items-center gap-2.5">
         <button
           onClick={() => refreshData()}
@@ -69,14 +68,13 @@ export const Topbar: React.FC<TopbarProps> = ({
           <span className="hidden sm:inline">Atualizar</span>
         </button>
 
-        {onOpenNewVisitor && (
+        {onOpenVisitorCard && (
           <button
-            onClick={onOpenNewVisitor}
+            onClick={onOpenVisitorCard}
             className="flex items-center gap-1.5 rounded-xl border border-blue-600/20 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition-all hover:bg-blue-100 active:scale-95"
           >
-            <Plus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Cadastrar Visitante</span>
-            <span className="sm:hidden">Visitante</span>
+            <ClipboardList className="h-3.5 w-3.5" />
+            <span>Ficha de Visitante</span>
           </button>
         )}
 
@@ -86,7 +84,8 @@ export const Topbar: React.FC<TopbarProps> = ({
             className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm shadow-blue-600/30 transition-all hover:bg-blue-700 active:scale-95"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            <span>Novo Culto</span>
+            <span className="hidden sm:inline">Adicionar Culto</span>
+            <span className="sm:hidden">Culto</span>
           </button>
         )}
       </div>

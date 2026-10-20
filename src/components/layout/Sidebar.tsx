@@ -1,19 +1,17 @@
 'use client';
 
 import React from 'react';
-import { useHangout, HangoutPageKey } from '@/context/HangoutContext';
+import { useHangout } from '@/context/HangoutContext';
+import { HangoutPageKey } from '@/types/hangout';
 import {
   LayoutDashboard,
   Calendar,
+  ClipboardList,
   Building2,
   Users,
-  UserPlus,
-  HeartHandshake,
-  GitPullRequest,
   BarChart3,
   CheckSquare,
   X,
-  LogOut,
   Flame,
 } from 'lucide-react';
 
@@ -26,12 +24,10 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard },
-  { key: 'services', label: 'Gestão de Cultos', icon: Calendar },
-  { key: 'ministries', label: 'Ministérios', icon: Building2 },
+  { key: 'services', label: 'Dados de Cultos', icon: Calendar },
+  { key: 'visitor_card', label: 'Ficha do Visitante', icon: ClipboardList, badge: 'Voluntários' },
+  { key: 'ministries', label: 'Ministérios (10)', icon: Building2 },
   { key: 'volunteers', label: 'Voluntários', icon: Users },
-  { key: 'visitors', label: 'Visitantes por Culto', icon: UserPlus },
-  { key: 'decisions', label: 'Decisões & Batismo', icon: HeartHandshake },
-  { key: 'integration', label: 'Acompanhamento', icon: GitPullRequest },
   { key: 'reports', label: 'Relatórios Mensais', icon: BarChart3 },
   { key: 'approvals', label: 'Painel de Aprovação', icon: CheckSquare, badge: 'Líder' },
 ];
@@ -112,7 +108,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className="rounded-md bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
+                  <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+                    item.badge === 'Líder' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'
+                  }`}>
                     {item.badge}
                   </span>
                 )}
@@ -130,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </div>
               <div className="overflow-hidden">
                 <p className="truncate text-xs font-semibold text-white">Liderança Hangout</p>
-                <p className="truncate text-[10px] text-emerald-400">● Conectado (Produção)</p>
+                <p className="truncate text-[10px] text-emerald-400">● Produção Vercel</p>
               </div>
             </div>
           </div>

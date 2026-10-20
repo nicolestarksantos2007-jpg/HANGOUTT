@@ -6,11 +6,9 @@ import {
   Ministry, 
   Volunteer, 
   ServiceVisitor, 
-  SpiritualDecision, 
-  NewPerson, 
   DashboardMetrics,
-  ServiceStatus,
-  IntegrationStage 
+  HangoutPageKey,
+  ServiceStatus
 } from '@/types/hangout';
 import { 
   fetchDashboardMetrics, 
@@ -18,27 +16,11 @@ import {
   fetchMinistries, 
   fetchVolunteers, 
   fetchVisitors, 
-  fetchSpiritualDecisions, 
-  fetchNewPeople,
   createService as apiCreateService,
   updateServiceStatus as apiUpdateServiceStatus,
   createVolunteer as apiCreateVolunteer,
-  createVisitor as apiCreateVisitor,
-  createSpiritualDecision as apiCreateSpiritualDecision,
-  createNewPerson as apiCreateNewPerson,
-  updateNewPeopleStage as apiUpdateNewPeopleStage
+  createVisitor as apiCreateVisitor
 } from '@/lib/supabase/service';
-
-export type HangoutPageKey = 
-  | 'dashboard' 
-  | 'services' 
-  | 'ministries' 
-  | 'volunteers' 
-  | 'visitors' 
-  | 'decisions' 
-  | 'integration' 
-  | 'reports' 
-  | 'approvals';
 
 interface HangoutContextType {
   activeTab: HangoutPageKey;
@@ -48,8 +30,6 @@ interface HangoutContextType {
   ministries: Ministry[];
   volunteers: Volunteer[];
   visitors: ServiceVisitor[];
-  decisions: SpiritualDecision[];
-  newPeople: NewPerson[];
   metrics: DashboardMetrics;
   refreshData: () => Promise<void>;
   
@@ -61,13 +41,8 @@ interface HangoutContextType {
   // Ações de Voluntários e Ministérios
   addVolunteer: (volunteer: Omit<Volunteer, 'id' | 'created_at' | 'ministries'>, ministryIds?: string[]) => Promise<void>;
   
-  // Ações de Visitantes e Decisões
+  // Ações da Ficha do Visitante
   addVisitor: (visitor: Omit<ServiceVisitor, 'id' | 'created_at'>) => Promise<void>;
-  addDecision: (decision: Omit<SpiritualDecision, 'id' | 'created_at'>) => Promise<void>;
-  
-  // Acompanhamento
-  addNewPerson: (person: Omit<NewPerson, 'id' | 'created_at'>) => Promise<void>;
-  updatePersonStage: (id: string, stage: IntegrationStage, note?: string) => Promise<void>;
 }
 
 const HangoutContext = createContext<HangoutContextType | undefined>(undefined);
@@ -80,8 +55,6 @@ export function HangoutProvider({ children }: { children: React.ReactNode }) {
   const [ministries, setMinistries] = useState<Ministry[]>([]);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [visitors, setVisitors] = useState<ServiceVisitor[]>([]);
-  const [decisions, setDecisions] = useState<SpiritualDecision[]>([]);
-  const [newPeople, setNewPeople] = useState<NewPerson[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalNewPeople: 0,
     totalVisitors: 0,
@@ -93,7 +66,7 @@ export function HangoutProvider({ children }: { children: React.ReactNode }) {
     distinctVolunteersServed: 0,
     totalVolunteerParticipations: 0,
     monthlyGrowth: { visitorsGrowthPct: 0, attendanceGrowthPct: 0, decisionsGrowthPct: 0, volunteersGrowthPct: 0 },
-    monthlyChartData: []
+    monthlyData: []
   });
 
   const refreshData = useCallback(async () => {
@@ -104,17 +77,13 @@ export function HangoutProvider({ children }: { children: React.ReactNode }) {
         servList, 
         minList, 
         volList, 
-        visList, 
-        decList, 
-        npList
+        visList
       ] = await Promise.all([
         fetchDashboardMetrics(),
         fetchServices(),
         fetchMinistries(),
         fetchVolunteers(),
-        fetchVisitors(),
-        fetchSpiritualDecisions(),
-        fetchNewPeople()
+        fetchVisitors()
       ]);
 
       setMetrics(dashMetrics);
@@ -122,8 +91,6 @@ export function HangoutProvider({ children }: { children: React.ReactNode }) {
       setMinistries(minList);
       setVolunteers(volList);
       setVisitors(visList);
-      setDecisions(decList);
-      setNewPeople(npList);
     } catch (err) {
       console.error('Erro ao carregar dados do Hangout:', err);
     } finally {
@@ -159,29 +126,9 @@ export function HangoutProvider({ children }: { children: React.ReactNode }) {
     await refreshData();
   };
 
-  // Handler: Cadastrar Visitante
+  // Handler: Cadastrar Ficha de Visitante
   const addVisitor = async (visitor: Omit<ServiceVisitor, 'id' | 'created_at'>) => {
     await apiCreateVisitor(visitor);
-    await refreshData();
-  };
-
-  // Handler: Registrar Decisão
-  const addDecision = async (decision: Omit<SpiritualDecision, 'id' | 'created_at'>) => {
-    await apiCreateSpiritualDecision(decision);
-    await refreshData();
-  };
-
-  // Handler: Nova Pessoa no Funil
-  const addNewPerson = async (person: Omit<NewPerson, 'id' | 'created_at'>) => {
-    // Implementação direta via Supabase
-    const { supabase } = await import('@/lib/supabase/client');
-    await supabase.from('new_people').insert([person]);
-    await refreshData();
-  };
-
-  // Handler: Atualizar Estágio da Pessoa
-  const updatePersonStage = async (id: string, stage: IntegrationStage, note?: string) => {
-    await apiUpdateNewPeopleStage(id, stage, note);
     await refreshData();
   };
 
@@ -194,18 +141,13 @@ export function HangoutProvider({ children }: { children: React.ReactNode }) {
       ministries,
       volunteers,
       visitors,
-      decisions,
-      newPeople,
       metrics,
       refreshData,
       addService,
       approveService,
       returnService,
       addVolunteer,
-      addVisitor,
-      addDecision,
-      addNewPerson,
-      updatePersonStage
+      addVisitor
     }}>
       {children}
     </HangoutContext.Provider>

@@ -2,13 +2,14 @@ export type UserRole = 'admin' | 'general_leader' | 'ministry_leader' | 'volunte
 
 export type ServiceStatus = 'draft' | 'submitted' | 'in_review' | 'returned' | 'approved';
 
-export type IntegrationStage = 
-  | 'novo_cadastro' 
-  | 'contato_pendente' 
-  | 'contato_realizado' 
-  | 'retornou' 
-  | 'acompanhamento' 
-  | 'integrado';
+export type HangoutPageKey = 
+  | 'dashboard' 
+  | 'services' 
+  | 'visitor_card' 
+  | 'ministries' 
+  | 'volunteers' 
+  | 'reports' 
+  | 'approvals';
 
 export interface UserProfile {
   id: string;
@@ -27,7 +28,6 @@ export interface Ministry {
   description?: string;
   is_active: boolean;
   color_hex: string;
-  leaders?: string[];
   volunteers_count?: number;
   created_at: string;
 }
@@ -57,6 +57,7 @@ export interface Service {
   decisions_jesus: number;
   reconciliations: number;
   baptism_decisions: number;
+  volunteers_served_count?: number;
   notes?: string;
   status: ServiceStatus;
   submitted_by?: string;
@@ -84,11 +85,13 @@ export interface ServiceParticipation {
 
 export interface ServiceVisitor {
   id: string;
-  service_id: string;
+  service_id?: string;
   full_name: string;
+  age?: number;
   phone?: string;
-  neighborhood?: string;
-  accompanied: boolean;
+  visit_date: string;
+  accompanied: boolean; // false = sozinho, true = acompanhado
+  contact_volunteer_name?: string;
   registered_by_volunteer_id?: string;
   registered_by_name?: string;
   interests?: string[];
@@ -96,26 +99,15 @@ export interface ServiceVisitor {
   created_at: string;
 }
 
-export interface SpiritualDecision {
-  id: string;
-  service_id: string;
-  person_name: string;
-  phone?: string;
-  decision_type: 'jesus' | 'reconciliation' | 'baptism';
-  notes?: string;
-  created_at: string;
-}
-
-export interface NewPerson {
-  id: string;
-  full_name: string;
-  phone?: string;
-  first_visit_date: string;
-  current_stage: IntegrationStage;
-  assigned_volunteer_id?: string;
-  assigned_volunteer_name?: string;
-  notes?: string;
-  created_at: string;
+export interface MonthlyMetricItem {
+  month: string;
+  monthKey: string; // Ex: '2026-10'
+  attendance: number;
+  visitors: number;
+  decisions_jesus: number;
+  baptisms: number;
+  reconciliations: number;
+  volunteers_served: number;
 }
 
 export interface DashboardMetrics {
@@ -134,11 +126,5 @@ export interface DashboardMetrics {
     decisionsGrowthPct: number;
     volunteersGrowthPct: number;
   };
-  monthlyChartData: {
-    month: string;
-    attendance: number;
-    visitors: number;
-    decisions: number;
-    volunteers: number;
-  }[];
+  monthlyData: MonthlyMetricItem[];
 }

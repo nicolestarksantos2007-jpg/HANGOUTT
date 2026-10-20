@@ -1,15 +1,15 @@
 'use client';
 
 import React from 'react';
-import { useHangout, HangoutPageKey } from '@/context/HangoutContext';
-import { LayoutDashboard, Calendar, Plus, Users, Menu } from 'lucide-react';
+import { useHangout } from '@/context/HangoutContext';
+import { HangoutPageKey } from '@/types/hangout';
+import { LayoutDashboard, Calendar, ClipboardList, Building2, Menu } from 'lucide-react';
 
 interface MobileNavProps {
   onOpenSidebar: () => void;
-  onQuickNewVisitor: () => void;
 }
 
-export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSidebar, onQuickNewVisitor }) => {
+export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSidebar }) => {
   const { activeTab, setActiveTab } = useHangout();
 
   const handleNav = (tab: HangoutPageKey) => {
@@ -31,7 +31,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSidebar, onQuickNewV
           <span className="mt-0.5 text-[10px] font-medium">Início</span>
         </button>
 
-        {/* Cultos */}
+        {/* Dados de Cultos */}
         <button
           onClick={() => handleNav('services')}
           className={`flex flex-col items-center justify-center rounded-xl px-2.5 py-1 transition-colors ${
@@ -42,29 +42,29 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSidebar, onQuickNewV
           <span className="mt-0.5 text-[10px] font-medium">Cultos</span>
         </button>
 
-        {/* Botão Central: + Cadastrar Visitante Rápido */}
+        {/* Botão Central: + Ficha do Visitante */}
         <div className="relative -mt-6">
           <button
-            onClick={onQuickNewVisitor}
-            aria-label="Cadastrar novo visitante"
+            onClick={() => handleNav('visitor_card')}
+            aria-label="Preencher ficha de visitante"
             className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/30 ring-4 ring-white transition-transform active:scale-95"
           >
-            <Plus className="h-6 w-6 stroke-[2.5]" />
+            <ClipboardList className="h-6 w-6 stroke-[2.2]" />
           </button>
           <span className="mt-0.5 block text-center text-[9px] font-bold text-blue-600">
-            Visitante
+            Ficha
           </span>
         </div>
 
-        {/* Voluntários */}
+        {/* Ministérios */}
         <button
-          onClick={() => handleNav('volunteers')}
+          onClick={() => handleNav('ministries')}
           className={`flex flex-col items-center justify-center rounded-xl px-2.5 py-1 transition-colors ${
-            activeTab === 'volunteers' ? 'font-bold text-blue-600' : 'text-slate-500 hover:text-slate-800'
+            activeTab === 'ministries' ? 'font-bold text-blue-600' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Users className="h-5 w-5" />
-          <span className="mt-0.5 text-[10px] font-medium">Equipe</span>
+          <Building2 className="h-5 w-5" />
+          <span className="mt-0.5 text-[10px] font-medium">Equipes</span>
         </button>
 
         {/* Menu Geral */}
@@ -73,7 +73,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSidebar, onQuickNewV
           className="flex flex-col items-center justify-center rounded-xl px-2.5 py-1 text-slate-500 transition-colors hover:text-slate-800"
         >
           <Menu className="h-5 w-5" />
-          <span className="mt-0.5 text-[10px] font-medium">Menu</span>
+          <span className="mt-0.5 text-[10px] font-medium">Mais</span>
         </button>
       </div>
     </nav>

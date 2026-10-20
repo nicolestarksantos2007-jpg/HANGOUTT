@@ -1,12 +1,10 @@
 -- ========================================================
--- HANGOUT DASHBOARD — SCHEMA OFICIAL SUPABASE POSTGRESQL
--- Banco de Dados: https://gybbjalhfvwditihhlcf.supabase.co
+-- HANGOUT DASHBOARD — SCHEMA OFICIAL ATUALIZADO
 -- ========================================================
 
--- Extensões necessárias
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. ENUMS E TIPOS
+-- TIPOS E ENUMS
 DO $$ BEGIN
     CREATE TYPE user_role AS ENUM ('admin', 'general_leader', 'ministry_leader', 'volunteer');
 EXCEPTION
@@ -19,13 +17,7 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
-DO $$ BEGIN
-    CREATE TYPE integration_stage AS ENUM ('novo_cadastro', 'contato_pendente', 'contato_realizado', 'retornou', 'acompanhamento', 'integrado');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- 2. TABELA: PROFILES (Perfis de Usuários)
+-- 1. TABELA: PROFILES
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL,
@@ -38,7 +30,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 3. TABELA: MINISTRIES (Ministérios do Hangout)
+-- 2. TABELA: MINISTRIES (10 Ministérios Oficiais do Hangout)
 CREATE TABLE IF NOT EXISTS public.ministries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
@@ -49,26 +41,22 @@ CREATE TABLE IF NOT EXISTS public.ministries (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Inserir os 4 ministérios padrão do Hangout
+-- Inserir / Atualizar os 10 Ministérios Oficiais
 INSERT INTO public.ministries (name, description, color_hex)
 VALUES 
-    ('Recepção e Acolhimento', 'Primeiro contato, boas-vindas, crachás e orientações nos cultos', '#2563EB'),
-    ('Integração e Igrupos', 'Conexão de novos visitantes a grupos nos lares e discipulado', '#0D9488'),
-    ('Comunicação e Mídias', 'Avisos, conexões digitais, suporte e registros', '#4F46E5'),
-    ('Intercessão e Apoio', 'Suporte espiritual, oração e organização do templo', '#0284C7')
-ON CONFLICT (name) DO NOTHING;
+    ('Hangout', 'Recepção, acolhimento, conexão de visitantes e cultura Outside', '#2563EB'),
+    ('Staff', 'Organização de fluxo, suporte operacional e segurança do ambiente', '#1D4ED8'),
+    ('Projeção', 'Operação de letras, telas, vídeos e suporte visual do culto', '#4338CA'),
+    ('Stories', 'Cobertura em tempo real para mídias sociais e engajamento', '#7C3AED'),
+    ('Fotos', 'Registro fotográfico profissional dos cultos e das vidas', '#6D28D9'),
+    ('Infra', 'Estrutura física, climatização, limpeza, montagem e equipamentos', '#0F766E'),
+    ('Gestão', 'Administração de dados, escalas, métricas e suporte à liderança', '#0369A1'),
+    ('Profético', 'Intercessão, escuta espiritual, oração e acolhimento profético', '#B45309'),
+    ('Músicos', 'Banda, arranjos, instrumentos e excelência no louvor', '#BE185D'),
+    ('Ministração', 'Liderança de louvor, direcionamento espiritual e voz', '#9D174D')
+ON CONFLICT (name) DO UPDATE SET is_active = TRUE;
 
--- 4. TABELA: MINISTRY_LEADERS (Líderes por Ministério)
-CREATE TABLE IF NOT EXISTS public.ministry_leaders (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ministry_id UUID NOT NULL REFERENCES public.ministries(id) ON DELETE CASCADE,
-    profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    assigned_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE NOT NULL,
-    UNIQUE(ministry_id, profile_id)
-);
-
--- 5. TABELA: VOLUNTEERS (Base Centralizada de Voluntários)
+-- 3. TABELA: VOLUNTEERS
 CREATE TABLE IF NOT EXISTS public.volunteers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     full_name TEXT NOT NULL,
@@ -82,7 +70,7 @@ CREATE TABLE IF NOT EXISTS public.volunteers (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 6. TABELA: VOLUNTEER_MINISTRIES (Vínculo Voluntário x Ministérios)
+-- 4. TABELA: VOLUNTEER_MINISTRIES
 CREATE TABLE IF NOT EXISTS public.volunteer_ministries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     volunteer_id UUID NOT NULL REFERENCES public.volunteers(id) ON DELETE CASCADE,
@@ -92,7 +80,7 @@ CREATE TABLE IF NOT EXISTS public.volunteer_ministries (
     UNIQUE(volunteer_id, ministry_id)
 );
 
--- 7. TABELA: SERVICES (Cultos)
+-- 5. TABELA: SERVICES (Dados de Cultos)
 CREATE TABLE IF NOT EXISTS public.services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     service_date DATE NOT NULL,
@@ -103,8 +91,9 @@ CREATE TABLE IF NOT EXISTS public.services (
     decisions_jesus INTEGER DEFAULT 0 NOT NULL,
     reconciliations INTEGER DEFAULT 0 NOT NULL,
     baptism_decisions INTEGER DEFAULT 0 NOT NULL,
+    volunteers_served_count INTEGER DEFAULT 0,
     notes TEXT,
-    status service_status DEFAULT 'draft' NOT NULL,
+    status service_status DEFAULT 'approved' NOT NULL,
     submitted_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     submitted_at TIMESTAMPTZ,
     reviewed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -114,152 +103,39 @@ CREATE TABLE IF NOT EXISTS public.services (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 8. TABELA: SERVICE_PARTICIPATIONS (Escala & Presenças Reais de Voluntários)
-CREATE TABLE IF NOT EXISTS public.service_participations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    service_id UUID NOT NULL REFERENCES public.services(id) ON DELETE CASCADE,
-    volunteer_id UUID NOT NULL REFERENCES public.volunteers(id) ON DELETE CASCADE,
-    ministry_id UUID NOT NULL REFERENCES public.ministries(id) ON DELETE CASCADE,
-    role_name TEXT DEFAULT 'Recepção',
-    status TEXT DEFAULT 'confirmed' CHECK (status IN ('scheduled', 'confirmed', 'absent')),
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    UNIQUE(service_id, volunteer_id, ministry_id)
-);
-
--- 9. TABELA: SERVICE_VISITORS (Visitantes Registrados por Culto)
+-- 6. TABELA: SERVICE_VISITORS (Fichas de Visitantes)
 CREATE TABLE IF NOT EXISTS public.service_visitors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    service_id UUID NOT NULL REFERENCES public.services(id) ON DELETE CASCADE,
+    service_id UUID REFERENCES public.services(id) ON DELETE SET NULL,
     full_name TEXT NOT NULL,
+    age INTEGER,
     phone TEXT,
-    neighborhood TEXT,
-    accompanied BOOLEAN DEFAULT FALSE NOT NULL,
+    visit_date DATE DEFAULT CURRENT_DATE,
+    accompanied BOOLEAN DEFAULT FALSE NOT NULL, -- false = Sozinho, true = Acompanhado
+    contact_volunteer_name TEXT, -- Responsável pelo contato
     registered_by_volunteer_id UUID REFERENCES public.volunteers(id) ON DELETE SET NULL,
-    interests TEXT[], -- Ex: ARRAY['igrupos', 'outrun', 'purpose']
+    neighborhood TEXT,
+    interests TEXT[],
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 10. TABELA: SPIRITUAL_DECISIONS (Decisões Espirituais por Culto)
-CREATE TABLE IF NOT EXISTS public.spiritual_decisions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    service_id UUID NOT NULL REFERENCES public.services(id) ON DELETE CASCADE,
-    person_name TEXT NOT NULL,
-    phone TEXT,
-    decision_type TEXT NOT NULL CHECK (decision_type IN ('jesus', 'reconciliation', 'baptism')),
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-);
+-- Migrações adicionais caso as colunas ainda não existam
+ALTER TABLE public.service_visitors ADD COLUMN IF NOT EXISTS age INTEGER;
+ALTER TABLE public.service_visitors ADD COLUMN IF NOT EXISTS visit_date DATE DEFAULT CURRENT_DATE;
+ALTER TABLE public.service_visitors ADD COLUMN IF NOT EXISTS contact_volunteer_name TEXT;
+ALTER TABLE public.services ADD COLUMN IF NOT EXISTS volunteers_served_count INTEGER DEFAULT 0;
 
--- 11. TABELA: NEW_PEOPLE (Funil de Acompanhamento e Integração de Pessoas)
-CREATE TABLE IF NOT EXISTS public.new_people (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    full_name TEXT NOT NULL,
-    phone TEXT,
-    first_visit_date DATE DEFAULT CURRENT_DATE,
-    current_stage integration_stage DEFAULT 'novo_cadastro' NOT NULL,
-    assigned_volunteer_id UUID REFERENCES public.volunteers(id) ON DELETE SET NULL,
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-);
-
--- 12. TABELA: NEW_PEOPLE_STEPS (Histórico das Etapas de Contato)
-CREATE TABLE IF NOT EXISTS public.new_people_steps (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    new_person_id UUID NOT NULL REFERENCES public.new_people(id) ON DELETE CASCADE,
-    previous_stage integration_stage,
-    new_stage integration_stage NOT NULL,
-    notes TEXT,
-    contact_date TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    registered_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL
-);
-
--- 13. TABELA: AUDIT_LOGS (Trilha de Auditoria e Aprovações)
-CREATE TABLE IF NOT EXISTS public.audit_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    table_name TEXT NOT NULL,
-    record_id UUID,
-    action TEXT NOT NULL,
-    changed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-    old_data JSONB,
-    new_data JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-);
-
--- 14. TRIGGER: Criação Automática de Perfil ao Cadastrar Usuário no Auth
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO public.profiles (id, full_name, email, role)
-    VALUES (
-        new.id,
-        COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-        new.email,
-        COALESCE((new.raw_user_meta_data->>'role')::user_role, 'volunteer')
-    )
-    ON CONFLICT (id) DO NOTHING;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- 15. ROW LEVEL SECURITY (RLS)
+-- RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ministry_leaders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.volunteers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.volunteer_ministries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.service_participations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.service_visitors ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.spiritual_decisions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.new_people ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.new_people_steps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Políticas de Acesso:
--- Usuários autenticados podem ler ministérios
-CREATE POLICY "Leitura de ministérios permitida a autenticados" ON public.ministries FOR SELECT TO authenticated USING (true);
-
--- Leitura de perfis
-CREATE POLICY "Leitura de perfis permitida a autenticados" ON public.profiles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Atualização do próprio perfil" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
-
--- Cultos: Leitura de cultos aprovados para todos; rascunhos para líderes/criador
-CREATE POLICY "Leitura de cultos para autenticados" ON public.services FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Inserção e atualização de cultos" ON public.services FOR ALL TO authenticated USING (true);
-
--- Voluntários e Participações:
-CREATE POLICY "Leitura de voluntários" ON public.volunteers FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Gestão de voluntários" ON public.volunteers FOR ALL TO authenticated USING (true);
-
-CREATE POLICY "Leitura de escalas" ON public.service_participations FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Gestão de escalas" ON public.service_participations FOR ALL TO authenticated USING (true);
-
--- Visitantes e Decisões:
-CREATE POLICY "Leitura de visitantes" ON public.service_visitors FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Inserção de visitantes" ON public.service_visitors FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "Gestão de visitantes" ON public.service_visitors FOR UPDATE TO authenticated USING (true);
-
-CREATE POLICY "Leitura de decisões" ON public.spiritual_decisions FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Gestão de decisões" ON public.spiritual_decisions FOR ALL TO authenticated USING (true);
-
--- Acompanhamento de Novas Pessoas:
-CREATE POLICY "Leitura de novas pessoas" ON public.new_people FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Gestão de novas pessoas" ON public.new_people FOR ALL TO authenticated USING (true);
-CREATE POLICY "Leitura de passos de novas pessoas" ON public.new_people_steps FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Gestão de passos de novas pessoas" ON public.new_people_steps FOR ALL TO authenticated USING (true);
-
--- Índices de Otimização e Performance:
-CREATE INDEX IF NOT EXISTS idx_services_date ON public.services(service_date);
-CREATE INDEX IF NOT EXISTS idx_services_status ON public.services(status);
-CREATE INDEX IF NOT EXISTS idx_service_part_service ON public.service_participations(service_id);
-CREATE INDEX IF NOT EXISTS idx_service_part_vol ON public.service_participations(volunteer_id);
-CREATE INDEX IF NOT EXISTS idx_visitors_service ON public.service_visitors(service_id);
-CREATE INDEX IF NOT EXISTS idx_new_people_stage ON public.new_people(current_stage);
+CREATE POLICY "Acesso completo a autenticados em ministérios" ON public.ministries FOR ALL TO authenticated USING (true);
+CREATE POLICY "Acesso completo a autenticados em perfis" ON public.profiles FOR ALL TO authenticated USING (true);
+CREATE POLICY "Acesso completo a autenticados em cultos" ON public.services FOR ALL TO authenticated USING (true);
+CREATE POLICY "Acesso completo a autenticados em voluntários" ON public.volunteers FOR ALL TO authenticated USING (true);
+CREATE POLICY "Acesso completo a autenticados em visitantes" ON public.service_visitors FOR ALL TO authenticated USING (true);

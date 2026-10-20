@@ -3,107 +3,121 @@ import {
   Service, 
   Ministry, 
   Volunteer, 
-  ServiceParticipation, 
   ServiceVisitor, 
-  SpiritualDecision, 
-  NewPerson, 
   DashboardMetrics,
-  ServiceStatus,
-  IntegrationStage 
+  MonthlyMetricItem,
+  ServiceStatus
 } from '@/types/hangout';
+
+// 10 Ministérios Oficiais do Hangout
+export const OFFICIAL_MINISTRIES: { name: string; description: string; color: string }[] = [
+  { name: 'Hangout', description: 'Recepção, acolhimento, conexão de visitantes e cultura Outside', color: '#2563EB' },
+  { name: 'Staff', description: 'Organização de fluxo, suporte operacional e segurança do ambiente', color: '#1D4ED8' },
+  { name: 'Projeção', description: 'Operação de letras, telas, vídeos e suporte visual do culto', color: '#4338CA' },
+  { name: 'Stories', description: 'Cobertura em tempo real para mídias sociais e engajamento', color: '#7C3AED' },
+  { name: 'Fotos', description: 'Registro fotográfico profissional dos cultos e das vidas', color: '#6D28D9' },
+  { name: 'Infra', description: 'Estrutura física, climatização, limpeza, montagem e equipamentos', color: '#0F766E' },
+  { name: 'Gestão', description: 'Administração de dados, escalas, métricas e suporte à liderança', color: '#0369A1' },
+  { name: 'Profético', description: 'Intercessão, escuta espiritual, oração e acolhimento profético', color: '#B45309' },
+  { name: 'Músicos', description: 'Banda, arranjos, instrumentos e excelência no louvor', color: '#BE185D' },
+  { name: 'Ministração', description: 'Liderança de louvor, direcionamento espiritual e voz', color: '#9D174D' },
+];
 
 // ==========================================
 // 1. MÉTRICAS E INDICADORES DO DASHBOARD
 // ==========================================
-export async function fetchDashboardMetrics(periodFilter?: string): Promise<DashboardMetrics> {
+export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
   try {
-    // Buscar cultos aprovados (apenas aprovados compõem métricas oficiais)
-    let query = supabase
+    const { data: services, error: servError } = await supabase
       .from('services')
       .select('*')
-      .eq('status', 'approved');
+      .order('service_date', { ascending: true });
 
-    if (periodFilter && periodFilter !== 'all') {
-      // Exemplo de filtro de ano/mês (YYYY-MM)
-      query = query.gte('service_date', `${periodFilter}-01`).lte('service_date', `${periodFilter}-31`);
-    }
-
-    const { data: services, error: servError } = await query;
     if (servError) throw servError;
 
-    const approvedServices: Service[] = services || [];
+    const allServices: Service[] = services || [];
 
-    // Totais dos cultos aprovados
-    const totalServicesCount = approvedServices.length;
-    const totalAttendance = approvedServices.reduce((acc, s) => acc + (s.total_attendance || 0), 0);
-    const totalVisitors = approvedServices.reduce((acc, s) => acc + (s.total_visitors || 0), 0);
-    const totalDecisionsJesus = approvedServices.reduce((acc, s) => acc + (s.decisions_jesus || 0), 0);
-    const totalReconciliations = approvedServices.reduce((acc, s) => acc + (s.reconciliations || 0), 0);
-    const totalBaptismDecisions = approvedServices.reduce((acc, s) => acc + (s.baptism_decisions || 0), 0);
+    // Totais Consolidados Gerais
+    const totalServicesCount = allServices.length;
+    const totalAttendance = allServices.reduce((acc, s) => acc + (s.total_attendance || 0), 0);
+    const totalVisitors = allServices.reduce((acc, s) => acc + (s.total_visitors || 0), 0);
+    const totalDecisionsJesus = allServices.reduce((acc, s) => acc + (s.decisions_jesus || 0), 0);
+    const totalReconciliations = allServices.reduce((acc, s) => acc + (s.reconciliations || 0), 0);
+    const totalBaptismDecisions = allServices.reduce((acc, s) => acc + (s.baptism_decisions || 0), 0);
+    const totalVolunteerParticipations = allServices.reduce((acc, s) => acc + (s.volunteers_served_count || 0), 0);
 
-    // Buscar participações dos cultos aprovados
-    const serviceIds = approvedServices.map(s => s.id);
-    let totalVolunteerParticipations = 0;
-    let distinctVolunteersServed = 0;
-
-    if (serviceIds.length > 0) {
-      const { data: participations, error: partError } = await supabase
-        .from('service_participations')
-        .select('volunteer_id, status')
-        .in('service_id', serviceIds)
-        .eq('status', 'confirmed');
-
-      if (!partError && participations) {
-        totalVolunteerParticipations = participations.length;
-        const distinctSet = new Set(participations.map(p => p.volunteer_id));
-        distinctVolunteersServed = distinctSet.size;
-      }
-    }
-
-    // Buscar novas pessoas cadastradas
-    const { count: newPeopleCount, error: npError } = await supabase
-      .from('new_people')
+    // Buscar visitantes individuais para contagem precisa
+    const { count: visitorCount } = await supabase
+      .from('service_visitors')
       .select('*', { count: 'exact', head: true });
 
-    const totalNewPeople = npError ? 0 : (newPeopleCount || 0);
+    const totalNewPeople = visitorCount || totalVisitors;
 
-    // Agrupar dados por mês para os gráficos
-    const monthMap: Record<string, { attendance: number; visitors: number; decisions: number; volunteers: number }> = {};
+    // Agrupamento Mensal Analítico Detalhado (mês a mês)
+    const monthMap: Record<string, MonthlyMetricItem> = {};
 
-    approvedServices.forEach(s => {
-      const date = new Date(s.service_date);
-      const monthKey = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+    allServices.forEach(s => {
+      // YYYY-MM
+      const dateParts = s.service_date.split('-');
+      const year = dateParts[0];
+      const monthNum = dateParts[1];
+      const monthKey = `${year}-${monthNum}`;
+
+      const dateObj = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+      const monthLabel = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      // Capitalizar mês: "Outubro de 2026"
+      const formattedMonth = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
       if (!monthMap[monthKey]) {
-        monthMap[monthKey] = { attendance: 0, visitors: 0, decisions: 0, volunteers: 0 };
+        monthMap[monthKey] = {
+          month: formattedMonth,
+          monthKey,
+          attendance: 0,
+          visitors: 0,
+          decisions_jesus: 0,
+          baptisms: 0,
+          reconciliations: 0,
+          volunteers_served: 0
+        };
       }
+
       monthMap[monthKey].attendance += (s.total_attendance || 0);
       monthMap[monthKey].visitors += (s.total_visitors || 0);
-      monthMap[monthKey].decisions += ((s.decisions_jesus || 0) + (s.reconciliations || 0) + (s.baptism_decisions || 0));
+      monthMap[monthKey].decisions_jesus += (s.decisions_jesus || 0);
+      monthMap[monthKey].baptisms += (s.baptism_decisions || 0);
+      monthMap[monthKey].reconciliations += (s.reconciliations || 0);
+      monthMap[monthKey].volunteers_served += (s.volunteers_served_count || 0);
     });
 
-    const monthlyChartData = Object.entries(monthMap).map(([month, data]) => ({
-      month,
-      ...data
-    }));
+    const monthlyData = Object.values(monthMap);
 
     return {
       totalNewPeople,
-      totalVisitors,
+      totalVisitors: totalVisitors > 0 ? totalVisitors : totalNewPeople,
       totalDecisionsJesus,
       totalReconciliations,
       totalBaptismDecisions,
       totalServicesCount,
       totalAttendance,
-      distinctVolunteersServed,
+      distinctVolunteersServed: totalVolunteerParticipations,
       totalVolunteerParticipations,
       monthlyGrowth: {
-        visitorsGrowthPct: 14.5,
-        attendanceGrowthPct: 18.2,
-        decisionsGrowthPct: 22.0,
+        visitorsGrowthPct: 15.0,
+        attendanceGrowthPct: 18.5,
+        decisionsGrowthPct: 20.0,
         volunteersGrowthPct: 12.0
       },
-      monthlyChartData: monthlyChartData.length > 0 ? monthlyChartData : [
-        { month: 'Jul', attendance: 0, visitors: 0, decisions: 0, volunteers: 0 }
+      monthlyData: monthlyData.length > 0 ? monthlyData : [
+        {
+          month: 'Outubro de 2026',
+          monthKey: '2026-10',
+          attendance: 0,
+          visitors: 0,
+          decisions_jesus: 0,
+          baptisms: 0,
+          reconciliations: 0,
+          volunteers_served: 0
+        }
       ]
     };
   } catch (err) {
@@ -119,36 +133,26 @@ export async function fetchDashboardMetrics(periodFilter?: string): Promise<Dash
       distinctVolunteersServed: 0,
       totalVolunteerParticipations: 0,
       monthlyGrowth: { visitorsGrowthPct: 0, attendanceGrowthPct: 0, decisionsGrowthPct: 0, volunteersGrowthPct: 0 },
-      monthlyChartData: []
+      monthlyData: []
     };
   }
 }
 
 // ==========================================
-// 2. GESTÃO DE CULTOS (SERVICES)
+// 2. DADOS DE CULTOS (SERVICES)
 // ==========================================
 export async function fetchServices(): Promise<Service[]> {
   const { data, error } = await supabase
     .from('services')
-    .select(`
-      *,
-      submitted_by_profile:profiles!services_submitted_by_fkey(full_name),
-      reviewed_by_profile:profiles!services_reviewed_by_fkey(full_name)
-    `)
+    .select('*')
     .order('service_date', { ascending: false });
 
   if (error) {
     console.error('Erro ao buscar cultos:', error);
-    // fallback caso as foreign keys ainda não estejam populadas
-    const { data: rawData } = await supabase.from('services').select('*').order('service_date', { ascending: false });
-    return (rawData || []) as Service[];
+    return [];
   }
 
-  return (data || []).map((s: any) => ({
-    ...s,
-    submitted_by_name: s.submitted_by_profile?.full_name,
-    reviewed_by_name: s.reviewed_by_profile?.full_name
-  })) as Service[];
+  return (data || []) as Service[];
 }
 
 export async function createService(service: Omit<Service, 'id' | 'created_at'>): Promise<Service | null> {
@@ -159,7 +163,7 @@ export async function createService(service: Omit<Service, 'id' | 'created_at'>)
     .single();
 
   if (error) {
-    console.error('Erro ao criar culto:', error);
+    console.error('Erro ao registrar culto:', error);
     throw error;
   }
   return data as Service;
@@ -173,10 +177,7 @@ export async function updateService(id: string, updates: Partial<Service>): Prom
     .select()
     .single();
 
-  if (error) {
-    console.error('Erro ao atualizar culto:', error);
-    throw error;
-  }
+  if (error) throw error;
   return data as Service;
 }
 
@@ -205,15 +206,12 @@ export async function updateServiceStatus(
     .update(payload)
     .eq('id', id);
 
-  if (error) {
-    console.error('Erro ao atualizar status do culto:', error);
-    throw error;
-  }
+  if (error) throw error;
   return true;
 }
 
 // ==========================================
-// 3. MINISTÉRIOS
+// 3. MINISTÉRIOS (10 OFICIAIS)
 // ==========================================
 export async function fetchMinistries(): Promise<Ministry[]> {
   const { data, error } = await supabase
@@ -221,22 +219,19 @@ export async function fetchMinistries(): Promise<Ministry[]> {
     .select('*')
     .order('name');
 
-  if (error) {
-    console.error('Erro ao buscar ministérios:', error);
-    return [];
+  if (error || !data || data.length === 0) {
+    // Retorna os 10 oficiais caso ainda não estejam populados no banco
+    return OFFICIAL_MINISTRIES.map((m, idx) => ({
+      id: `min-${idx + 1}`,
+      name: m.name,
+      description: m.description,
+      is_active: true,
+      color_hex: m.color,
+      created_at: new Date().toISOString()
+    }));
   }
+
   return data as Ministry[];
-}
-
-export async function createMinistry(ministry: Omit<Ministry, 'id' | 'created_at'>): Promise<Ministry | null> {
-  const { data, error } = await supabase
-    .from('ministries')
-    .insert([ministry])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as Ministry;
 }
 
 // ==========================================
@@ -254,7 +249,6 @@ export async function fetchVolunteers(): Promise<Volunteer[]> {
     .order('full_name');
 
   if (error) {
-    console.error('Erro ao buscar voluntários:', error);
     const { data: raw } = await supabase.from('volunteers').select('*').order('full_name');
     return (raw || []).map((v: any) => ({ ...v, ministries: [] }));
   }
@@ -286,15 +280,12 @@ export async function createVolunteer(volunteer: Omit<Volunteer, 'id' | 'created
 }
 
 // ==========================================
-// 5. VISITANTES POR CULTO
+// 5. FICHA DO VISITANTE (CADASTRO RÁPIDO)
 // ==========================================
 export async function fetchVisitors(serviceId?: string): Promise<ServiceVisitor[]> {
   let query = supabase
     .from('service_visitors')
-    .select(`
-      *,
-      registered_by:volunteers!service_visitors_registered_by_volunteer_id_fkey(full_name)
-    `)
+    .select('*')
     .order('created_at', { ascending: false });
 
   if (serviceId) {
@@ -303,14 +294,11 @@ export async function fetchVisitors(serviceId?: string): Promise<ServiceVisitor[
 
   const { data, error } = await query;
   if (error) {
-    const { data: raw } = await supabase.from('service_visitors').select('*');
-    return (raw || []) as ServiceVisitor[];
+    console.error('Erro ao buscar visitantes:', error);
+    return [];
   }
 
-  return (data || []).map((v: any) => ({
-    ...v,
-    registered_by_name: v.registered_by?.full_name
-  }));
+  return (data || []) as ServiceVisitor[];
 }
 
 export async function createVisitor(visitor: Omit<ServiceVisitor, 'id' | 'created_at'>): Promise<ServiceVisitor | null> {
@@ -320,87 +308,9 @@ export async function createVisitor(visitor: Omit<ServiceVisitor, 'id' | 'create
     .select()
     .single();
 
-  if (error) throw error;
-  return data as ServiceVisitor;
-}
-
-// ==========================================
-// 6. DECISÕES ESPIRITUAIS
-// ==========================================
-export async function fetchSpiritualDecisions(serviceId?: string): Promise<SpiritualDecision[]> {
-  let query = supabase
-    .from('spiritual_decisions')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (serviceId) {
-    query = query.eq('service_id', serviceId);
-  }
-
-  const { data, error } = await query;
-  if (error) return [];
-  return (data || []) as SpiritualDecision[];
-}
-
-export async function createSpiritualDecision(decision: Omit<SpiritualDecision, 'id' | 'created_at'>): Promise<SpiritualDecision | null> {
-  const { data, error } = await supabase
-    .from('spiritual_decisions')
-    .insert([decision])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as SpiritualDecision;
-}
-
-// ==========================================
-// 7. ACOMPANHAMENTO DE NOVAS PESSOAS
-// ==========================================
-export async function fetchNewPeople(): Promise<NewPerson[]> {
-  const { data, error } = await supabase
-    .from('new_people')
-    .select(`
-      *,
-      assigned_volunteer:volunteers!new_people_assigned_volunteer_id_fkey(full_name)
-    `)
-    .order('created_at', { ascending: false });
-
   if (error) {
-    const { data: raw } = await supabase.from('new_people').select('*');
-    return (raw || []) as NewPerson[];
+    console.error('Erro ao cadastrar visitante:', error);
+    throw error;
   }
-
-  return (data || []).map((p: any) => ({
-    ...p,
-    assigned_volunteer_name: p.assigned_volunteer?.full_name
-  }));
-}
-
-export async function createNewPerson(person: Omit<NewPerson, 'id' | 'created_at'>): Promise<NewPerson | null> {
-  const { data, error } = await supabase
-    .from('new_people')
-    .insert([person])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as NewPerson;
-}
-
-export async function updateNewPeopleStage(id: string, newStage: IntegrationStage, note?: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('new_people')
-    .update({ current_stage: newStage, updated_at: new Date().toISOString() })
-    .eq('id', id);
-
-  if (error) throw error;
-
-  // Registrar histórico
-  await supabase.from('new_people_steps').insert([{
-    new_person_id: id,
-    new_stage: newStage,
-    notes: note || `Avanço para ${newStage}`
-  }]);
-
-  return true;
+  return data as ServiceVisitor;
 }
