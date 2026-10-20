@@ -47,6 +47,13 @@ export interface Volunteer {
   created_at: string;
 }
 
+export interface MinistryServingData {
+  count: number;
+  names?: string;
+}
+
+export type MinistryBreakdown = Record<string, MinistryServingData>;
+
 export interface Service {
   id: string;
   service_date: string;
@@ -58,6 +65,7 @@ export interface Service {
   reconciliations: number;
   baptism_decisions: number;
   volunteers_served_count?: number;
+  ministry_breakdown?: MinistryBreakdown;
   notes?: string;
   status: ServiceStatus;
   submitted_by?: string;

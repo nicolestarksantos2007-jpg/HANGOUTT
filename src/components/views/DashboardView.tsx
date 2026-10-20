@@ -6,13 +6,12 @@ import {
   Users, 
   UserPlus, 
   HeartHandshake, 
-  Calendar, 
   Flame, 
-  Award,
-  Filter,
-  CheckCircle2,
-  TrendingUp,
-  Droplets
+  Filter, 
+  CheckCircle2, 
+  Droplets,
+  Building2,
+  Sparkles
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -25,13 +24,31 @@ import {
   Legend 
 } from 'recharts';
 
+const OFFICIAL_MINISTRIES = [
+  'Hangout',
+  'Staff',
+  'Projeção',
+  'Stories',
+  'Fotos',
+  'Infra',
+  'Gestão',
+  'Profético',
+  'Músicos',
+  'Ministração'
+];
+
 export const DashboardView: React.FC = () => {
   const { metrics, services, setActiveTab } = useHangout();
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>('all');
 
   const monthlyList = metrics.monthlyData || [];
 
-  // Dados filtrados pelo mês ou consolidados
+  // Filtrar serviços do mês selecionado
+  const selectedServices = selectedMonthKey === 'all'
+    ? services
+    : services.filter(s => s.service_date.startsWith(selectedMonthKey));
+
+  // Dados consolidados do mês
   const currentMonthData = selectedMonthKey === 'all'
     ? {
         month: 'Todos os Meses (Consolidado)',
@@ -51,6 +68,20 @@ export const DashboardView: React.FC = () => {
         baptisms: 0,
         volunteers_served: 0
       });
+
+  // Somar voluntários que serviram em cada ministério no período
+  const ministryTotals: Record<string, number> = {};
+  OFFICIAL_MINISTRIES.forEach(name => { ministryTotals[name] = 0; });
+
+  selectedServices.forEach(s => {
+    if (s.ministry_breakdown) {
+      Object.entries(s.ministry_breakdown).forEach(([name, data]) => {
+        if (ministryTotals[name] !== undefined) {
+          ministryTotals[name] += (data.count || 0);
+        }
+      });
+    }
+  });
 
   return (
     <div className="space-y-6 pb-20 lg:pb-8">
@@ -137,7 +168,7 @@ export const DashboardView: React.FC = () => {
         <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between text-purple-600">
             <span className="text-[11px] font-bold uppercase">Reconciliação</span>
-            <SparklesIcon className="h-4 w-4" />
+            <Sparkles className="h-4 w-4" />
           </div>
           <p className="mt-2 text-2xl font-black text-purple-600">
             {currentMonthData.reconciliations.toLocaleString('pt-BR')}
@@ -167,6 +198,41 @@ export const DashboardView: React.FC = () => {
             {currentMonthData.volunteers_served.toLocaleString('pt-BR')}
           </p>
           <p className="mt-0.5 text-[10px] text-slate-400">Voluntários em escala</p>
+        </div>
+      </div>
+
+      {/* ⭐ NOVO: Voluntários que Serviram em Cada um dos 10 Ministérios no Período */}
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-sm">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-blue-600" />
+              <span>Voluntários que Serviram por Ministério ({selectedMonthKey === 'all' ? 'Geral' : currentMonthData.month})</span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              Total de participações de voluntários em cada um dos 10 times oficiais
+            </p>
+          </div>
+
+          <button
+            onClick={() => setActiveTab('services')}
+            className="text-xs font-bold text-blue-600 hover:text-blue-700"
+          >
+            Lançar culto →
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {OFFICIAL_MINISTRIES.map((name) => {
+            const count = ministryTotals[name] || 0;
+            return (
+              <div key={name} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 text-center">
+                <span className="font-bold text-slate-800 text-xs block">{name}</span>
+                <p className="text-xl font-black text-blue-600 mt-1">{count}</p>
+                <span className="text-[10px] text-slate-400 font-medium">participações</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -300,11 +366,3 @@ export const DashboardView: React.FC = () => {
     </div>
   );
 };
-
-function SparklesIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-    </svg>
-  );
-}
