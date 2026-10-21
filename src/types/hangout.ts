@@ -1,4 +1,9 @@
-export type UserRole = 'admin' | 'general_leader' | 'ministry_leader' | 'volunteer';
+export type UserRole = 
+  | 'lider_base' 
+  | 'lider_time' 
+  | 'volunteer';
+
+export type UserStatus = 'pending' | 'approved' | 'rejected';
 
 export type ServiceStatus = 'draft' | 'submitted' | 'in_review' | 'returned' | 'approved';
 
@@ -9,7 +14,8 @@ export type HangoutPageKey =
   | 'ministries' 
   | 'volunteers' 
   | 'reports' 
-  | 'approvals';
+  | 'approvals'
+  | 'user_admin';
 
 export interface UserProfile {
   id: string;
@@ -17,6 +23,8 @@ export interface UserProfile {
   email?: string;
   phone?: string;
   role: UserRole;
+  team?: string; // 'Time 1' | 'Time 2' | 'Time 3' | 'Time 4' | 'Liderança Base'
+  status: UserStatus;
   is_active: boolean;
   avatar_url?: string;
   created_at: string;
@@ -39,6 +47,7 @@ export interface Volunteer {
   phone?: string;
   email?: string;
   status: 'active' | 'inactive';
+  team?: string;
   profile_id?: string;
   ministries: string[];
   roles?: string[];
@@ -66,6 +75,7 @@ export interface Service {
   baptism_decisions: number;
   volunteers_served_count?: number;
   ministry_breakdown?: MinistryBreakdown;
+  serving_team?: string; // Ex: 'Time 1', 'Time 2' etc.
   notes?: string;
   status: ServiceStatus;
   submitted_by?: string;
@@ -109,7 +119,7 @@ export interface ServiceVisitor {
 
 export interface MonthlyMetricItem {
   month: string;
-  monthKey: string; // Ex: '2026-10'
+  monthKey: string;
   attendance: number;
   visitors: number;
   decisions_jesus: number;

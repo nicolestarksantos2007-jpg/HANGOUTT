@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useHangout } from '@/context/HangoutContext';
-import { HangoutPageKey } from '@/types/hangout';
+import { useAuth } from '@/context/AuthContext';
+import { HangoutPageKey, UserRole } from '@/types/hangout';
 import {
   LayoutDashboard,
   Calendar,
@@ -13,6 +14,9 @@ import {
   CheckSquare,
   X,
   Flame,
+  ShieldCheck,
+  LogOut,
+  Sparkles
 } from 'lucide-react';
 
 interface NavItem {
@@ -20,16 +24,61 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   badge?: string;
+  allowedRoles?: UserRole[];
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { key: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard },
-  { key: 'services', label: 'Dados de Cultos', icon: Calendar },
-  { key: 'visitor_card', label: 'Ficha do Visitante', icon: ClipboardList, badge: 'Voluntários' },
-  { key: 'ministries', label: 'Ministérios (10)', icon: Building2 },
-  { key: 'volunteers', label: 'Voluntários', icon: Users },
-  { key: 'reports', label: 'Relatórios Mensais', icon: BarChart3 },
-  { key: 'approvals', label: 'Painel de Aprovação', icon: CheckSquare, badge: 'Líder' },
+const ALL_NAV_ITEMS: NavItem[] = [
+  { 
+    key: 'dashboard', 
+    label: 'Dashboard Geral', 
+    icon: LayoutDashboard,
+    allowedRoles: ['lider_base', 'lider_time']
+  },
+  { 
+    key: 'services', 
+    label: 'Dados de Cultos', 
+    icon: Calendar,
+    allowedRoles: ['lider_base', 'lider_time', 'volunteer']
+  },
+  { 
+    key: 'visitor_card', 
+    label: 'Ficha do Visitante', 
+    icon: ClipboardList, 
+    badge: 'Acolhimento',
+    allowedRoles: ['lider_base', 'lider_time', 'volunteer']
+  },
+  { 
+    key: 'volunteers', 
+    label: 'Voluntários', 
+    icon: Users,
+    allowedRoles: ['lider_base', 'lider_time', 'volunteer']
+  },
+  { 
+    key: 'ministries', 
+    label: 'Ministérios (10)', 
+    icon: Building2,
+    allowedRoles: ['lider_base', 'lider_time']
+  },
+  { 
+    key: 'reports', 
+    label: 'Relatórios Mensais', 
+    icon: BarChart3,
+    allowedRoles: ['lider_base', 'lider_time']
+  },
+  { 
+    key: 'approvals', 
+    label: 'Aprovação de Cultos', 
+    icon: CheckSquare, 
+    badge: 'Líder',
+    allowedRoles: ['lider_base']
+  },
+  { 
+    key: 'user_admin', 
+    label: 'Painel de Liderança', 
+    icon: ShieldCheck, 
+    badge: 'Base',
+    allowedRoles: ['lider_base']
+  },
 ];
 
 interface SidebarProps {
@@ -39,11 +88,25 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { activeTab, setActiveTab } = useHangout();
+  const { profile, signOut } = useAuth();
+
+  const userRole: UserRole = profile?.role || 'volunteer';
+
+  const visibleNavItems = ALL_NAV_ITEMS.filter(item => 
+    !item.allowedRoles || item.allowedRoles.includes(userRole)
+  );
 
   const handleSelect = (key: HangoutPageKey) => {
     setActiveTab(key);
     onClose();
   };
+
+  const roleBadgeText = 
+    userRole === 'lider_base' 
+      ? '👑 Líder Base' 
+      : userRole === 'lider_time' 
+      ? `⚡ Líder • ${profile?.team || 'Time'}` 
+      : `🛡️ Voluntário • ${profile?.team || 'Time'}`;
 
   return (
     <>
@@ -83,10 +146,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         {/* Navigation list */}
         <nav className="flex-1 space-y-1.5 overflow-y-auto px-4 py-6 scrollbar-thin">
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-blue-300/60">
-            Módulos Oficiais
+            Navegação do Sistema
           </p>
 
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.key;
             return (
@@ -109,7 +172,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </div>
                 {item.badge && (
                   <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${
-                    item.badge === 'Líder' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'
+                    item.badge === 'Base' ? 'bg-purple-500/30 text-purple-200 border border-purple-400/30' :
+                    item.badge === 'Líder' ? 'bg-amber-500/20 text-amber-300' : 
+                    'bg-blue-500/20 text-blue-300'
                   }`}>
                     {item.badge}
                   </span>
@@ -119,17 +184,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           })}
         </nav>
 
-        {/* Footer profile info */}
+        {/* Footer com Informações do Usuário Logado e Logout */}
         <div className="border-t border-white/10 p-4">
-          <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 font-bold text-white text-xs">
-                HG
+          <div className="rounded-2xl bg-white/5 p-3.5 border border-white/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 font-bold text-white text-xs shadow-md">
+                  {profile?.full_name ? profile.full_name.substring(0, 2).toUpperCase() : 'HG'}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="truncate text-xs font-bold text-white">
+                    {profile?.full_name || 'Usuário Hangout'}
+                  </p>
+                  <p className="truncate text-[10px] text-blue-300 font-medium">
+                    {roleBadgeText}
+                  </p>
+                </div>
               </div>
-              <div className="overflow-hidden">
-                <p className="truncate text-xs font-semibold text-white">Liderança Hangout</p>
-                <p className="truncate text-[10px] text-emerald-400">● Produção Vercel</p>
-              </div>
+
+              <button
+                onClick={() => signOut()}
+                title="Sair do sistema"
+                className="rounded-xl p-2 text-slate-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
