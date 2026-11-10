@@ -28,15 +28,13 @@ export async function POST(req: NextRequest) {
     const chosenTeam = role === 'lider_base' ? 'Liderança Base' : (team || 'Time 1');
 
     // Regra de Acesso:
-    // 1. Voluntários: acesso liberado já (status = 'approved')
-    // 2. Líderes Base pré-autorizados (Eduardo Piccini e Nicole stark): liberado já (status = 'approved')
-    // 3. Líderes de Time ou outros Líderes Base: requer aprovação de Eduardo (status = 'pending')
+    // 1. Voluntários: acesso liberado direto (status = 'approved')
+    // 2. Eduardo Piccini: Líder Base já aprovado
+    // 3. Demais Líderes Base e Líderes de Time: ficam pendentes aguardando aprovação do Eduardo
     const isPreApproved = 
       role === 'volunteer' ||
       cleanEmail === 'eduardopiccinimartins@gmail.com' ||
-      cleanEmail === 'nicolestarksantos2007@gmail.com' ||
-      trimmedName.toLowerCase() === 'eduardo piccini' ||
-      trimmedName.toLowerCase() === 'nicole stark';
+      trimmedName.toLowerCase() === 'eduardo piccini';
 
     const status = isPreApproved ? 'approved' : 'pending';
 
