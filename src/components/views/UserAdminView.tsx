@@ -160,7 +160,7 @@ export const UserAdminView: React.FC = () => {
               <span>Líderes Base Oficiais (Nomes Liberados)</span>
             </h3>
             <p className="text-xs text-purple-700/80 mt-0.5">
-              Os 6 líderes com autoridade geral no Hangout. Notificações de aprovação são enviadas para <strong className="text-purple-900">eduardopiccinimartins@gmail.com</strong>
+              Os 6 líderes com autoridade geral no Hangout. Notificações de aprovação são enviadas por e-mail.
             </p>
           </div>
           <span className="rounded-full bg-purple-600 px-3 py-1 text-xs font-black text-white self-start sm:self-auto shadow-xs">
@@ -262,7 +262,7 @@ export const UserAdminView: React.FC = () => {
               )}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Você pode aprovar clicando no botão abaixo ou pelo link enviado ao seu e-mail (<span className="text-blue-600 font-semibold">eduardopiccinimartins@gmail.com</span>)
+              Você pode aprovar clicando no botão abaixo ou pelo link direto enviado ao seu e-mail.
             </p>
           </div>
         </div>
