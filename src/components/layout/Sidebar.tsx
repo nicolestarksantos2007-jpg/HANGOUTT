@@ -51,13 +51,13 @@ const ALL_NAV_ITEMS: NavItem[] = [
     key: 'volunteers', 
     label: 'Voluntários', 
     icon: Users,
-    allowedRoles: ['lider_base', 'lider_time', 'volunteer']
+    allowedRoles: ['lider_base', 'lider_time']
   },
   { 
     key: 'ministries', 
     label: 'Ministérios (10)', 
     icon: Building2,
-    allowedRoles: ['lider_base', 'lider_time']
+    allowedRoles: ['lider_base', 'lider_time', 'volunteer']
   },
   { 
     key: 'reports', 

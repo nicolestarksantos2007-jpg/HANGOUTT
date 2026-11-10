@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { LoginView } from '@/components/auth/LoginView';
+import { HangoutPageKey } from '@/types/hangout';
 
 // Views Oficiais
 import { DashboardView } from '@/components/views/DashboardView';
@@ -25,11 +26,19 @@ function DashboardContent() {
   const { session, user, profile, isLoading, isPendingApproval } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Set default tab based on role
+  // Set default tab and enforce strict route guards based on role
   useEffect(() => {
-    if (profile) {
-      if (profile.role === 'volunteer' && activeTab === 'dashboard') {
-        setActiveTab('visitor_card');
+    if (!profile) return;
+
+    if (profile.role === 'volunteer') {
+      const allowedVolunteerTabs: HangoutPageKey[] = ['services', 'visitor_card', 'ministries'];
+      if (!allowedVolunteerTabs.includes(activeTab)) {
+        setActiveTab('services');
+      }
+    } else if (profile.role === 'lider_time') {
+      const allowedLeaderTabs: HangoutPageKey[] = ['dashboard', 'services', 'visitor_card', 'volunteers', 'ministries', 'reports'];
+      if (!allowedLeaderTabs.includes(activeTab)) {
+        setActiveTab('dashboard');
       }
     }
   }, [profile, activeTab, setActiveTab]);

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useHangout } from '@/context/HangoutContext';
+import { useAuth } from '@/context/AuthContext';
 import { HangoutPageKey } from '@/types/hangout';
 import { LayoutDashboard, Calendar, ClipboardList, Building2, Menu } from 'lucide-react';
 
@@ -11,6 +12,8 @@ interface MobileNavProps {
 
 export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSidebar }) => {
   const { activeTab, setActiveTab } = useHangout();
+  const { profile } = useAuth();
+  const isVolunteer = profile?.role === 'volunteer';
 
   const handleNav = (tab: HangoutPageKey) => {
     setActiveTab(tab);
@@ -20,16 +23,18 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSidebar }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-2 py-1.5 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] backdrop-blur-xl lg:hidden">
       <div className="relative mx-auto flex max-w-md items-center justify-around">
-        {/* Início */}
-        <button
-          onClick={() => handleNav('dashboard')}
-          className={`flex flex-col items-center justify-center rounded-xl px-2.5 py-1 transition-colors ${
-            activeTab === 'dashboard' ? 'font-bold text-blue-600' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <LayoutDashboard className="h-5 w-5" />
-          <span className="mt-0.5 text-[10px] font-medium">Início</span>
-        </button>
+        {/* Início - Apenas para Líderes */}
+        {!isVolunteer && (
+          <button
+            onClick={() => handleNav('dashboard')}
+            className={`flex flex-col items-center justify-center rounded-xl px-2.5 py-1 transition-colors ${
+              activeTab === 'dashboard' ? 'font-bold text-blue-600' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+            <span className="mt-0.5 text-[10px] font-medium">Início</span>
+          </button>
+        )}
 
         {/* Dados de Cultos */}
         <button

@@ -110,9 +110,11 @@ export const ServicesView: React.FC = () => {
     const matchesSearch = s.service_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDate = selectedDateFilter === 'all' || s.service_date === selectedDateFilter;
     
-    // Regra de time: se for líder de time com restrição estrita, ou filtro ativo
+    // Regra de time: se líder de time, exibe estritamente o seu time
     let matchesTeam = true;
-    if (selectedTeamFilter !== 'all') {
+    if (isTeamLeader && profile?.team) {
+      matchesTeam = s.serving_team === profile.team;
+    } else if (selectedTeamFilter !== 'all') {
       matchesTeam = s.serving_team === selectedTeamFilter || !s.serving_team;
     }
 
@@ -207,20 +209,27 @@ export const ServicesView: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Filtro por Time */}
-          <div className="flex items-center gap-1.5">
-            <Layers className="h-4 w-4 text-slate-400" />
-            <select
-              value={selectedTeamFilter}
-              onChange={(e) => setSelectedTeamFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
-            >
-              <option value="all">Todos os Times</option>
-              <option value="Time 1">Time 1</option>
-              <option value="Time 2">Time 2</option>
-              <option value="Time 3">Time 3</option>
-              <option value="Time 4">Time 4</option>
-            </select>
-          </div>
+          {isTeamLeader ? (
+            <div className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+              <Layers className="h-3.5 w-3.5 text-amber-600" />
+              <span>Seu Time: {profile?.team}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Layers className="h-4 w-4 text-slate-400" />
+              <select
+                value={selectedTeamFilter}
+                onChange={(e) => setSelectedTeamFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="all">Todos os Times</option>
+                <option value="Time 1">Time 1</option>
+                <option value="Time 2">Time 2</option>
+                <option value="Time 3">Time 3</option>
+                <option value="Time 4">Time 4</option>
+              </select>
+            </div>
+          )}
 
           {/* Filtro por Data */}
           <div className="flex items-center gap-1.5">
@@ -415,22 +424,31 @@ export const ServicesView: React.FC = () => {
                   <Layers className="h-4 w-4 text-blue-600" />
                   <span>Time Responsável por este Culto *</span>
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {['Time 1', 'Time 2', 'Time 3', 'Time 4', 'Geral / Todos'].map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setServingTeam(t)}
-                      className={`rounded-xl py-2 px-3 text-xs font-bold transition-all ${
-                        servingTeam === t 
-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-600 ring-offset-1' 
-                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
+                {isTeamLeader ? (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-bold text-amber-900 flex items-center justify-between">
+                    <span>⚡ Escala vinculada ao seu time: <strong>{profile?.team}</strong></span>
+                    <span className="text-[10px] bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full font-black">
+                      Líder do Time
+                    </span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {['Time 1', 'Time 2', 'Time 3', 'Time 4', 'Geral / Todos'].map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setServingTeam(t)}
+                        className={`rounded-xl py-2 px-3 text-xs font-bold transition-all ${
+                          servingTeam === t 
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-600 ring-offset-1' 
+                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 2. Data, Horário e Nome do Culto */}

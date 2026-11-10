@@ -17,7 +17,10 @@ import {
   Layers,
   MailCheck,
   UserCheck,
-  Crown
+  Crown,
+  Trash2,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 
 const TEAMS = ['Time 1', 'Time 2', 'Time 3', 'Time 4'];
@@ -27,6 +30,9 @@ export const UserAdminView: React.FC = () => {
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [teamFilter, setTeamFilter] = useState('all');
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -96,6 +102,72 @@ export const UserAdminView: React.FC = () => {
       setFeedback({ message: 'Erro de conexão.', type: 'error' });
     } finally {
       setProcessingId(null);
+      setTimeout(() => setFeedback(null), 4000);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete || !profile?.id) return;
+    try {
+      setIsDeleting(true);
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileId: userToDelete.id,
+          currentUserId: profile.id
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setFeedback({
+          message: data.message || `Membro ${userToDelete.full_name} excluído com sucesso do sistema.`,
+          type: 'success'
+        });
+        setUserToDelete(null);
+        await loadProfiles();
+      } else {
+        setFeedback({ message: data.error || 'Erro ao excluir membro.', type: 'error' });
+      }
+    } catch (err) {
+      setFeedback({ message: 'Erro de conexão ao excluir membro.', type: 'error' });
+    } finally {
+      setIsDeleting(false);
+      setTimeout(() => setFeedback(null), 4000);
+    }
+  };
+
+  const handleUpdateTeam = async (profileId: string, newTeam: string, userName: string) => {
+    if (!profile?.id) return;
+    try {
+      setUpdatingId(profileId);
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileId,
+          currentUserId: profile.id,
+          updates: { team: newTeam }
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setFeedback({
+          message: newTeam === 'Sem Time' 
+            ? `${userName} foi desvinculado do time com sucesso.` 
+            : `Time de ${userName} alterado para ${newTeam}!`,
+          type: 'success'
+        });
+        await loadProfiles();
+      } else {
+        setFeedback({ message: data.error || 'Erro ao alterar composição de time.', type: 'error' });
+      }
+    } catch (err) {
+      setFeedback({ message: 'Erro de conexão ao alterar time.', type: 'error' });
+    } finally {
+      setUpdatingId(null);
       setTimeout(() => setFeedback(null), 4000);
     }
   };
@@ -329,6 +401,16 @@ export const UserAdminView: React.FC = () => {
                     <Check className="h-4 w-4" />
                     <span>Aprovar Acesso</span>
                   </button>
+
+                  <button
+                    onClick={() => setUserToDelete(user)}
+                    disabled={processingId === user.id}
+                    title="Excluir cadastro permanentemente"
+                    className="flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 active:scale-95 disabled:opacity-50 transition-all"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Excluir</span>
+                  </button>
                 </div>
               </div>
             ))
@@ -383,9 +465,9 @@ export const UserAdminView: React.FC = () => {
             </p>
           ) : (
             filteredApproved.map((u) => (
-              <div key={u.id} className="flex items-center justify-between py-3.5">
+              <div key={u.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-slate-900 text-xs sm:text-sm">{u.full_name}</span>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                       u.role === 'lider_base'
@@ -405,7 +487,26 @@ export const UserAdminView: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {/* Gestão do Time / Desvincular do Time */}
+                  {u.role !== 'lider_base' && (
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={u.team || 'Sem Time'}
+                        disabled={updatingId === u.id}
+                        onChange={(e) => handleUpdateTeam(u.id, e.target.value, u.full_name)}
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-700 focus:border-blue-500 focus:outline-none"
+                        title="Alterar time ou desvincular do time"
+                      >
+                        <option value="Time 1">Time 1</option>
+                        <option value="Time 2">Time 2</option>
+                        <option value="Time 3">Time 3</option>
+                        <option value="Time 4">Time 4</option>
+                        <option value="Sem Time">Sem Time (Desvincular)</option>
+                      </select>
+                    </div>
+                  )}
+
                   <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
                     Aprovado
                   </span>
@@ -413,10 +514,23 @@ export const UserAdminView: React.FC = () => {
                   {u.role !== 'lider_base' && (
                     <button
                       onClick={() => handleUpdateStatus(u.id, 'pending', u.full_name)}
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                       title="Pausar / Mudar para pendente"
                     >
                       <X className="h-4 w-4" />
+                    </button>
+                  )}
+
+                  {/* Exclusão com confirmação para Líder Base */}
+                  {u.role !== 'lider_base' && u.id !== profile?.id && (
+                    <button
+                      onClick={() => setUserToDelete(u)}
+                      disabled={isDeleting || processingId === u.id}
+                      className="flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50/60 px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-100 active:scale-95 transition-all"
+                      title={`Remover ${u.full_name} do sistema`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Excluir</span>
                     </button>
                   )}
                 </div>
@@ -425,6 +539,92 @@ export const UserAdminView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de Confirmação de Exclusão de Membro */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-gradient-to-r from-rose-600 to-rose-700 p-5 text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="rounded-xl bg-white/20 p-2">
+                  <AlertTriangle className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black">Confirmar Exclusão de Membro</h3>
+                  <p className="text-[11px] text-rose-100">Exclusão permanente e revogação de acesso</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Você tem certeza que deseja remover permanentemente o membro{' '}
+                <strong className="text-slate-900">{userToDelete.full_name}</strong>?
+              </p>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Nome:</span>
+                  <span className="font-bold text-slate-900">{userToDelete.full_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Função:</span>
+                  <span className="font-bold text-purple-700">
+                    {userToDelete.role === 'lider_time' 
+                      ? '⚡ Líder de Time' 
+                      : userToDelete.role === 'lider_base' 
+                      ? '👑 Líder Base' 
+                      : '🛡️ Voluntário'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Time:</span>
+                  <span className="font-bold text-blue-700">{userToDelete.team || 'Sem Time'}</span>
+                </div>
+                {userToDelete.email && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">E-mail:</span>
+                    <span className="font-semibold text-slate-700 truncate max-w-[200px]">{userToDelete.email}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-800 leading-snug">
+                ⚠️ <strong>Atenção:</strong> Esta ação excluirá os registros de voluntário e perfil, revogará o login no Hangout Dashboard e não poderá ser desfeita.
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setUserToDelete(null)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleDeleteUser}
+                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-rose-600/30 hover:bg-rose-700 active:scale-95 disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Excluindo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      <span>Sim, Excluir Membro</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

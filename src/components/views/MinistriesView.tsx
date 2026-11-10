@@ -2,10 +2,19 @@
 
 import React from 'react';
 import { useHangout } from '@/context/HangoutContext';
+import { useAuth } from '@/context/AuthContext';
 import { Building2, Users, Flame, Sparkles } from 'lucide-react';
 
 export const MinistriesView: React.FC = () => {
   const { ministries, volunteers } = useHangout();
+  const { profile } = useAuth();
+
+  const isTeamLeader = profile?.role === 'lider_time';
+  const userTeam = profile?.team;
+
+  const scopedVolunteers = isTeamLeader && userTeam
+    ? volunteers.filter(v => v.team === userTeam)
+    : volunteers;
 
   return (
     <div className="space-y-6 pb-20 lg:pb-8">
@@ -13,12 +22,20 @@ export const MinistriesView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-black text-slate-900 sm:text-2xl">10 Ministérios Oficiais</h2>
-            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800">
-              Times Hangout
-            </span>
+            {isTeamLeader ? (
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800 border border-amber-200">
+                ⚡ Seu Time: {userTeam}
+              </span>
+            ) : (
+              <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800">
+                Times Hangout
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500">
-            Estrutura oficial de serviço: Hangout, Staff, Projeção, Stories, Fotos, Infra, Gestão, Profético, Músicos e Ministração
+            {isTeamLeader 
+              ? `Estrutura de voluntários do ${userTeam} servindo nos 10 ministérios oficiais`
+              : 'Estrutura oficial de serviço: Hangout, Staff, Projeção, Stories, Fotos, Infra, Gestão, Profético, Músicos e Ministração'}
           </p>
         </div>
 
@@ -30,7 +47,7 @@ export const MinistriesView: React.FC = () => {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ministries.map((ministry) => {
-          const linkedVolunteers = volunteers.filter(v => 
+          const linkedVolunteers = scopedVolunteers.filter(v => 
             v.ministries && v.ministries.some(m => m.toLowerCase() === ministry.name.toLowerCase())
           );
 

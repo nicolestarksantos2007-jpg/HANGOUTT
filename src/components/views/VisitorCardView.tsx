@@ -2,10 +2,19 @@
 
 import React, { useState } from 'react';
 import { useHangout } from '@/context/HangoutContext';
+import { useAuth } from '@/context/AuthContext';
 import { ClipboardList, CheckCircle2, User, Phone, Calendar, Users, Sparkles, Send } from 'lucide-react';
 
 export const VisitorCardView: React.FC = () => {
   const { visitors, addVisitor, services } = useHangout();
+  const { profile } = useAuth();
+
+  const isTeamLeader = profile?.role === 'lider_time';
+  const userTeam = profile?.team;
+
+  const availableServices = isTeamLeader && userTeam
+    ? services.filter(s => s.serving_team === userTeam)
+    : services;
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -174,7 +183,7 @@ export const VisitorCardView: React.FC = () => {
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none"
                   >
                     <option value="">Vincular a um culto...</option>
-                    {services.map(s => (
+                    {availableServices.map(s => (
                       <option key={s.id} value={s.id}>
                         {s.service_name} ({new Date(s.service_date).toLocaleDateString('pt-BR')})
                       </option>

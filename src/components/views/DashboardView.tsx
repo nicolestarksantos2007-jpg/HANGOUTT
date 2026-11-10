@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useHangout } from '@/context/HangoutContext';
+import { useAuth } from '@/context/AuthContext';
 import { 
   Users, 
   UserPlus, 
@@ -9,9 +10,11 @@ import {
   Flame, 
   Filter, 
   CheckCircle2, 
-  Droplets,
-  Building2,
-  Sparkles
+  Droplets, 
+  Building2, 
+  Sparkles,
+  ShieldCheck,
+  Crown
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -39,35 +42,105 @@ const OFFICIAL_MINISTRIES = [
 
 export const DashboardView: React.FC = () => {
   const { metrics, services, setActiveTab } = useHangout();
+  const { profile } = useAuth();
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>('all');
 
-  const monthlyList = metrics.monthlyData || [];
+  const isTeamLeader = profile?.role === 'lider_time';
+  const isBaseLeader = profile?.role === 'lider_base';
+  const userTeam = profile?.team;
+
+  // Filtrar serviços por time caso seja líder de time
+  const scopedServices = useMemo(() => {
+    if (isTeamLeader && userTeam) {
+      return services.filter(s => s.serving_team === userTeam);
+    }
+    return services;
+  }, [isTeamLeader, userTeam, services]);
+
+  // Se for líder de time, agrupar scopedServices por mês dinamicamente
+  const monthlyList = useMemo(() => {
+    if (!isTeamLeader) {
+      return metrics.monthlyData || [];
+    }
+
+    const map = new Map<string, {
+      monthKey: string;
+      month: string;
+      attendance: number;
+      visitors: number;
+      decisions_jesus: number;
+      reconciliations: number;
+      baptisms: number;
+      volunteers_served: number;
+    }>();
+
+    scopedServices.forEach(s => {
+      const monthKey = s.service_date.slice(0, 7);
+      const [year, month] = monthKey.split('-');
+      const monthName = new Date(Number(year), Number(month) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      const formattedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+
+      if (!map.has(monthKey)) {
+        map.set(monthKey, {
+          monthKey,
+          month: formattedMonth,
+          attendance: 0,
+          visitors: 0,
+          decisions_jesus: 0,
+          reconciliations: 0,
+          baptisms: 0,
+          volunteers_served: 0,
+        });
+      }
+
+      const entry = map.get(monthKey)!;
+      entry.attendance += (s.total_attendance || 0);
+      entry.visitors += (s.total_visitors || 0);
+      entry.decisions_jesus += (s.decisions_jesus || 0);
+      entry.reconciliations += (s.reconciliations || 0);
+      entry.baptisms += (s.baptism_decisions || 0);
+      entry.volunteers_served += (s.volunteers_served_count || 0);
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+  }, [isTeamLeader, scopedServices, metrics.monthlyData]);
 
   // Filtrar serviços do mês selecionado
   const selectedServices = selectedMonthKey === 'all'
-    ? services
-    : services.filter(s => s.service_date.startsWith(selectedMonthKey));
+    ? scopedServices
+    : scopedServices.filter(s => s.service_date.startsWith(selectedMonthKey));
 
   // Dados consolidados do mês
-  const currentMonthData = selectedMonthKey === 'all'
+  const currentMonthData = isTeamLeader
     ? {
-        month: 'Todos os Meses (Consolidado)',
-        attendance: metrics.totalAttendance,
-        visitors: metrics.totalVisitors,
-        decisions_jesus: metrics.totalDecisionsJesus,
-        reconciliations: metrics.totalReconciliations,
-        baptisms: metrics.totalBaptismDecisions,
-        volunteers_served: metrics.totalVolunteerParticipations
+        month: selectedMonthKey === 'all' ? `Consolidado (${userTeam})` : `Mês ${selectedMonthKey}`,
+        attendance: selectedServices.reduce((acc, s) => acc + (s.total_attendance || 0), 0),
+        visitors: selectedServices.reduce((acc, s) => acc + (s.total_visitors || 0), 0),
+        decisions_jesus: selectedServices.reduce((acc, s) => acc + (s.decisions_jesus || 0), 0),
+        reconciliations: selectedServices.reduce((acc, s) => acc + (s.reconciliations || 0), 0),
+        baptisms: selectedServices.reduce((acc, s) => acc + (s.baptism_decisions || 0), 0),
+        volunteers_served: selectedServices.reduce((acc, s) => acc + (s.volunteers_served_count || 0), 0)
       }
-    : (monthlyList.find(m => m.monthKey === selectedMonthKey) || {
-        month: 'Mês Selecionado',
-        attendance: 0,
-        visitors: 0,
-        decisions_jesus: 0,
-        reconciliations: 0,
-        baptisms: 0,
-        volunteers_served: 0
-      });
+    : (selectedMonthKey === 'all'
+        ? {
+            month: 'Todos os Meses (Consolidado Geral)',
+            attendance: metrics.totalAttendance,
+            visitors: metrics.totalVisitors,
+            decisions_jesus: metrics.totalDecisionsJesus,
+            reconciliations: metrics.totalReconciliations,
+            baptisms: metrics.totalBaptismDecisions,
+            volunteers_served: metrics.totalVolunteerParticipations
+          }
+        : (monthlyList.find(m => m.monthKey === selectedMonthKey) || {
+            month: 'Mês Selecionado',
+            attendance: selectedServices.reduce((acc, s) => acc + (s.total_attendance || 0), 0),
+            visitors: selectedServices.reduce((acc, s) => acc + (s.total_visitors || 0), 0),
+            decisions_jesus: selectedServices.reduce((acc, s) => acc + (s.decisions_jesus || 0), 0),
+            reconciliations: selectedServices.reduce((acc, s) => acc + (s.reconciliations || 0), 0),
+            baptisms: selectedServices.reduce((acc, s) => acc + (s.baptism_decisions || 0), 0),
+            volunteers_served: selectedServices.reduce((acc, s) => acc + (s.volunteers_served_count || 0), 0)
+          })
+      );
 
   // Somar voluntários que serviram em cada ministério no período
   const ministryTotals: Record<string, number> = {};
@@ -91,12 +164,23 @@ export const DashboardView: React.FC = () => {
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold backdrop-blur-md">
             <Flame className="h-4 w-4 text-blue-300" />
             <span>Outside & Ivales — Ministério Hangout</span>
+            {isTeamLeader ? (
+              <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[10px] font-black text-white ml-2 flex items-center gap-1 shadow-xs">
+                ⚡ Seu Time: {userTeam}
+              </span>
+            ) : (
+              <span className="rounded-full bg-purple-500/90 px-2.5 py-0.5 text-[10px] font-black text-white ml-2 flex items-center gap-1 shadow-xs">
+                <Crown className="h-3 w-3" /> Acesso Geral (Líder Base)
+              </span>
+            )}
           </div>
           <h2 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">
-            Dashboard Geral de Cultos & Vidas
+            {isTeamLeader ? `Dashboard do ${userTeam}` : 'Dashboard Geral de Cultos & Vidas'}
           </h2>
           <p className="mt-2 text-sm text-blue-100/90 leading-relaxed sm:text-base">
-            Métricas oficiais apuradas por culto: presenças, visitantes, decisões e voluntários servindo.
+            {isTeamLeader 
+              ? `Métricas apuradas exclusivamente para o ${userTeam}: presenças, visitantes, decisões e voluntários servindo.` 
+              : 'Métricas oficiais apuradas por culto de todas as equipes: presenças, visitantes, decisões e voluntários servindo.'}
           </p>
         </div>
         <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full bg-white/5 blur-2xl" />
