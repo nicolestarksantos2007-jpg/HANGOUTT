@@ -11,14 +11,14 @@ interface AuthContextType {
   profile: UserProfile | null;
   isLoading: boolean;
   isPendingApproval: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (identifier: string, password: string) => Promise<{ error: string | null }>;
   signUpUser: (
-    email: string, 
-    password: string, 
     fullName: string, 
+    password: string, 
     role: UserRole, 
-    team?: string
-  ) => Promise<{ error: string | null; message?: string }>;
+    team?: string,
+    email?: string
+  ) => Promise<{ error: string | null; message?: string; status?: UserStatus }>;
   signOut: () => Promise<void>;
   getAllProfiles: () => Promise<UserProfile[]>;
   updateUserStatus: (profileId: string, status: UserStatus) => Promise<boolean>;
@@ -47,14 +47,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data) {
         setProfile(data as UserProfile);
-        // Se for pendente e não for o líder base oficial, bloquear acesso
-        if (data.status === 'pending' && data.email !== 'eduardopiccinimartins@gmail.com') {
+        
+        // Regra de Liberação:
+        // Eduardo Piccini e Nicole stark sempre aprovados
+        // Voluntários aprovados
+        const isOfficialBase = 
+          data.email === 'eduardopiccinimartins@gmail.com' || 
+          data.email === 'nicolestarksantos2007@gmail.com' ||
+          data.full_name?.toLowerCase() === 'eduardo piccini' ||
+          data.full_name?.toLowerCase() === 'nicole stark';
+
+        if (data.status === 'pending' && !isOfficialBase) {
           setIsPendingApproval(true);
         } else {
           setIsPendingApproval(false);
         }
       } else if (userEmail === 'eduardopiccinimartins@gmail.com') {
-        // Fallback garantido para Eduardo como Líder Base
+        // Fallback garantido para Eduardo Piccini como Líder Base
         const adminProfile: UserProfile = {
           id: userId,
           full_name: 'Eduardo Piccini',
@@ -107,23 +116,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [loadUserProfile]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (identifier: string, password: string) => {
     try {
-      const cleanEmail = email.trim().toLowerCase();
+      const cleanId = identifier.trim();
+      let emailToUse = cleanId.toLowerCase();
+
+      // Se o usuário digitou NOME e SENHA (não contém @):
+      if (!cleanId.includes('@')) {
+        // Busca na tabela de perfis pelo nome completo
+        const { data: matchedProfiles } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .ilike('full_name', cleanId)
+          .limit(1);
+
+        if (matchedProfiles && matchedProfiles.length > 0 && matchedProfiles[0].email) {
+          emailToUse = matchedProfiles[0].email;
+        } else {
+          // Gera o email interno padronizado
+          const slug = cleanId
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, '');
+          emailToUse = `${slug || 'membro'}@hangout.local`;
+        }
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
+        email: emailToUse,
         password,
       });
 
       if (error) {
-        return { error: error.message };
+        return { error: 'Nome ou senha incorretos. Verifique seus dados e tente novamente.' };
       }
 
       setSession(data.session);
       setUser(data.user);
 
       if (data.user) {
-        await loadUserProfile(data.user.id, cleanEmail);
+        await loadUserProfile(data.user.id, emailToUse);
       }
 
       return { error: null };
@@ -133,60 +166,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUpUser = async (
-    email: string, 
-    password: string, 
     fullName: string, 
+    password: string, 
     role: UserRole, 
-    team?: string
+    team?: string,
+    email?: string
   ) => {
     try {
-      const cleanEmail = email.trim().toLowerCase();
-      const isBaseLeader = cleanEmail === 'eduardopiccinimartins@gmail.com' || role === 'lider_base';
-      const initialStatus: UserStatus = isBaseLeader ? 'approved' : 'pending';
-
-      const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password,
-        options: {
-          data: {
-            full_name: fullName.trim(),
-            role,
-            team: team || (isBaseLeader ? 'Liderança Base' : 'Time 1'),
-            status: initialStatus
-          }
-        }
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          password,
+          role,
+          team,
+          email: email?.trim()
+        })
       });
 
-      if (error) {
-        return { error: error.message };
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        return { error: data.error || 'Erro ao realizar cadastro.' };
       }
 
-      if (data.user) {
-        // Gravar no profiles explicitamente
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          full_name: fullName.trim(),
-          email: cleanEmail,
-          role,
-          team: team || (isBaseLeader ? 'Liderança Base' : 'Time 1'),
-          status: initialStatus,
-          is_active: true
-        });
-      }
-
-      if (initialStatus === 'pending') {
-        return {
-          error: null,
-          message: 'Cadastro realizado com sucesso! Sua conta foi enviada para o Líder Base e você terá acesso assim que ele aprovar seu cadastro no painel de administração.'
-        };
+      // Se já foi aprovado (ex: Voluntário ou Líder Base oficial), entra direto com Nome e Senha!
+      if (data.status === 'approved') {
+        await signIn(data.email || fullName, password);
       }
 
       return {
         error: null,
-        message: 'Cadastro de Líder Base realizado com sucesso! Faça login para continuar.'
+        message: data.message,
+        status: data.status
       };
     } catch (err: any) {
-      return { error: err.message || 'Erro inesperado ao cadastrar.' };
+      return { error: err.message || 'Erro ao comunicar com o servidor.' };
     }
   };
 

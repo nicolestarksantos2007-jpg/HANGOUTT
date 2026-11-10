@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { UserProfile, UserRole, UserStatus } from '@/types/hangout';
+import { UserProfile, UserRole, UserStatus, OFFICIAL_BASE_LEADERS } from '@/types/hangout';
 import { 
   ShieldCheck, 
   Clock, 
@@ -15,8 +15,9 @@ import {
   RefreshCw, 
   AlertCircle,
   Layers,
-  Mail,
-  UserCheck
+  MailCheck,
+  UserCheck,
+  Crown
 } from 'lucide-react';
 
 const TEAMS = ['Time 1', 'Time 2', 'Time 3', 'Time 4'];
@@ -69,6 +70,36 @@ export const UserAdminView: React.FC = () => {
     }
   };
 
+  const handleResendEmail = async (user: UserProfile) => {
+    try {
+      setProcessingId(user.id);
+      const res = await fetch('/api/notify-approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileId: user.id,
+          fullName: user.full_name,
+          role: user.role,
+          team: user.team
+        })
+      });
+
+      if (res.ok) {
+        setFeedback({
+          message: `E-mail de aprovação reenviado para eduardopiccinimartins@gmail.com!`,
+          type: 'success'
+        });
+      } else {
+        setFeedback({ message: 'Erro ao reenviar e-mail de notificação.', type: 'error' });
+      }
+    } catch (err) {
+      setFeedback({ message: 'Erro de conexão.', type: 'error' });
+    } finally {
+      setProcessingId(null);
+      setTimeout(() => setFeedback(null), 4000);
+    }
+  };
+
   const pendingUsers = profiles.filter(p => p.status === 'pending');
   const approvedUsers = profiles.filter(p => p.status === 'approved');
 
@@ -94,7 +125,7 @@ export const UserAdminView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-500">
-            Aprovação de novos líderes de time e voluntários cadastrados no Hangout
+            Aprovação de Líderes de Time e gestão dos voluntários e líderes base oficiais
           </p>
         </div>
 
@@ -120,6 +151,60 @@ export const UserAdminView: React.FC = () => {
         </div>
       )}
 
+      {/* 👑 SEÇÃO OFICIAL: OS 6 LÍDERES BASE DO HANGOUT */}
+      <div className="rounded-3xl border border-purple-200 bg-gradient-to-br from-purple-50/50 via-white to-blue-50/40 p-5 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-purple-100 pb-4">
+          <div>
+            <h3 className="text-base font-black text-purple-950 flex items-center gap-2">
+              <Crown className="h-5 w-5 text-purple-600" />
+              <span>Líderes Base Oficiais (Nomes Liberados)</span>
+            </h3>
+            <p className="text-xs text-purple-700/80 mt-0.5">
+              Os 6 líderes com autoridade geral no Hangout. Notificações de aprovação são enviadas para <strong className="text-purple-900">eduardopiccinimartins@gmail.com</strong>
+            </p>
+          </div>
+          <span className="rounded-full bg-purple-600 px-3 py-1 text-xs font-black text-white self-start sm:self-auto shadow-xs">
+            6 Líderes Base
+          </span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {OFFICIAL_BASE_LEADERS.map((leader) => {
+            const registeredUser = profiles.find(
+              p => p.full_name.toLowerCase() === leader.name.toLowerCase()
+            );
+
+            return (
+              <div 
+                key={leader.name}
+                className={`rounded-2xl border p-3.5 transition-all ${
+                  registeredUser 
+                    ? 'border-purple-300 bg-white shadow-xs' 
+                    : 'border-slate-200/80 bg-slate-50/60'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-slate-900 text-xs sm:text-sm">{leader.name}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${
+                    registeredUser 
+                      ? 'bg-purple-100 text-purple-800 border border-purple-200' 
+                      : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {registeredUser ? 'Ativo no App' : 'Nome Liberado'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-purple-600 font-medium mt-1">{leader.couple}</p>
+                {registeredUser?.email && (
+                  <p className="text-[10px] text-slate-400 mt-1 truncate">
+                    {registeredUser.email}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Métricas do Painel */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-3xl border border-amber-200 bg-amber-50/60 p-4">
@@ -128,7 +213,7 @@ export const UserAdminView: React.FC = () => {
             <Clock className="h-4 w-4" />
           </div>
           <p className="mt-2 text-2xl font-black text-amber-900">{pendingUsers.length}</p>
-          <p className="text-[10px] text-amber-700 mt-0.5">Aguardando sua aprovação</p>
+          <p className="text-[10px] text-amber-700 mt-0.5">Aguardando aprovação</p>
         </div>
 
         <div className="rounded-3xl border border-blue-200 bg-blue-50/60 p-4">
@@ -137,9 +222,9 @@ export const UserAdminView: React.FC = () => {
             <Users className="h-4 w-4" />
           </div>
           <p className="mt-2 text-2xl font-black text-blue-900">
-            {profiles.filter(p => p.role === 'volunteer' && p.status === 'approved').length}
+            {profiles.filter(p => p.role === 'volunteer').length}
           </p>
-          <p className="text-[10px] text-blue-700 mt-0.5">Aprovados e ativos</p>
+          <p className="text-[10px] text-blue-700 mt-0.5">Entrada liberada direta</p>
         </div>
 
         <div className="rounded-3xl border border-purple-200 bg-purple-50/60 p-4">
@@ -150,7 +235,7 @@ export const UserAdminView: React.FC = () => {
           <p className="mt-2 text-2xl font-black text-purple-900">
             {profiles.filter(p => p.role === 'lider_time' && p.status === 'approved').length}
           </p>
-          <p className="text-[10px] text-purple-700 mt-0.5">Gestores dos 4 times</p>
+          <p className="text-[10px] text-purple-700 mt-0.5">Aprovados nos 4 times</p>
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-4">
@@ -159,17 +244,17 @@ export const UserAdminView: React.FC = () => {
             <ShieldCheck className="h-4 w-4" />
           </div>
           <p className="mt-2 text-2xl font-black text-slate-900">{profiles.length}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">Base cadastrada</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Cadastrados no banco</p>
         </div>
       </div>
 
-      {/* SEÇÃO 1: SOLICITAÇÕES PENDENTES (PRIORITÁRIA) */}
+      {/* SEÇÃO 1: SOLICITAÇÕES PENDENTES DE LÍDER DE TIME (APROVAÇÃO) */}
       <div className="rounded-3xl border border-amber-200 bg-white p-5 sm:p-6 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div>
             <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
               <Clock className="h-5 w-5 text-amber-500" />
-              <span>Solicitações Pendentes de Aprovação</span>
+              <span>Solicitações de Líderes Aguardando Aprovação</span>
               {pendingUsers.length > 0 && (
                 <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-black text-white">
                   {pendingUsers.length}
@@ -177,7 +262,7 @@ export const UserAdminView: React.FC = () => {
               )}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Somente o Líder Base pode aceitar e liberar o acesso desses voluntários e líderes
+              Você pode aprovar clicando no botão abaixo ou pelo link enviado ao seu e-mail (<span className="text-blue-600 font-semibold">eduardopiccinimartins@gmail.com</span>)
             </p>
           </div>
         </div>
@@ -188,7 +273,7 @@ export const UserAdminView: React.FC = () => {
               <Check className="mx-auto h-8 w-8 text-emerald-500" />
               <p className="mt-2 text-xs font-bold text-slate-700">Tudo em dia!</p>
               <p className="text-[11px] text-slate-500">
-                Não há nenhum cadastro pendente aguardando aprovação no momento.
+                Não há nenhum líder de time pendente de aprovação no momento.
               </p>
             </div>
           ) : (
@@ -200,32 +285,37 @@ export const UserAdminView: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-bold text-slate-900 text-sm">{user.full_name}</h4>
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black ${
-                      user.role === 'lider_time' 
-                        ? 'bg-amber-100 text-amber-800 border border-amber-200' 
-                        : 'bg-blue-100 text-blue-800 border border-blue-200'
-                    }`}>
-                      {user.role === 'lider_time' ? '⚡ Líder de Time' : '🛡️ Voluntário'}
+                    <span className="rounded-full px-2.5 py-0.5 text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200">
+                      ⚡ {user.role === 'lider_time' ? 'Líder de Time' : 'Líder Base'}
                     </span>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200">
+                    <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
                       {user.team || 'Time 1'}
                     </span>
                   </div>
 
                   <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
-                    <Mail className="h-3 w-3 text-slate-400" />
-                    <span>{user.email}</span>
+                    <span>Login: <strong>{user.full_name}</strong></span>
                     <span>•</span>
                     <span>Cadastrado em: {new Date(user.created_at).toLocaleDateString('pt-BR')}</span>
                   </p>
                 </div>
 
-                {/* Botões de Ação para o Líder Base */}
-                <div className="flex items-center gap-2">
+                {/* Ações do Líder Base */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => handleResendEmail(user)}
+                    disabled={processingId === user.id}
+                    title="Reenviar e-mail com link de aprovação direta"
+                    className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 active:scale-95 disabled:opacity-50 transition-all"
+                  >
+                    <MailCheck className="h-3.5 w-3.5 text-blue-600" />
+                    <span>Reenviar E-mail</span>
+                  </button>
+
                   <button
                     onClick={() => handleUpdateStatus(user.id, 'rejected', user.full_name)}
                     disabled={processingId === user.id}
-                    className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 active:scale-95 disabled:opacity-50 transition-all"
+                    className="flex items-center gap-1 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 active:scale-95 disabled:opacity-50 transition-all"
                   >
                     <X className="h-4 w-4" />
                     <span>Rejeitar</span>
@@ -246,7 +336,7 @@ export const UserAdminView: React.FC = () => {
         </div>
       </div>
 
-      {/* SEÇÃO 2: MEMBROS E LÍDERES APROVADOS */}
+      {/* SEÇÃO 2: MEMBROS APROVADOS (VOLUNTÁRIOS & LÍDERES DE TIME) */}
       <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-100">
           <div>
@@ -254,7 +344,7 @@ export const UserAdminView: React.FC = () => {
               Membros & Lideranças Aprovadas ({filteredApproved.length})
             </h3>
             <p className="text-xs text-slate-500">
-              Visualização geral de todos os membros ativos distribuídos por time
+              Visualização de todos os voluntários (acesso direto) e líderes de time ativos
             </p>
           </div>
 
@@ -310,7 +400,9 @@ export const UserAdminView: React.FC = () => {
                       {u.team || 'Geral'}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{u.email}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Login com nome: <span className="font-semibold text-slate-600">{u.full_name}</span>
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">

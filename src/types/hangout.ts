@@ -30,6 +30,22 @@ export interface UserProfile {
   created_at: string;
 }
 
+export interface BaseLeaderInfo {
+  name: string;
+  couple: string;
+  role: 'lider_base';
+  title: string;
+}
+
+export const OFFICIAL_BASE_LEADERS: BaseLeaderInfo[] = [
+  { name: 'Nicole stark', couple: 'Nicole stark & Eduardo Piccini', role: 'lider_base', title: 'Líder Base' },
+  { name: 'Eduardo Piccini', couple: 'Nicole stark & Eduardo Piccini', role: 'lider_base', title: 'Líder Base' },
+  { name: 'Andriza', couple: 'Andriza & mateus garcias', role: 'lider_base', title: 'Líder Base' },
+  { name: 'mateus garcias', couple: 'Andriza & mateus garcias', role: 'lider_base', title: 'Líder Base' },
+  { name: 'josue henkc', couple: 'josue henkc & isabelle adamatti', role: 'lider_base', title: 'Líder Base' },
+  { name: 'isabelle adamatti', couple: 'josue henkc & isabelle adamatti', role: 'lider_base', title: 'Líder Base' },
+];
+
 export interface Ministry {
   id: string;
   name: string;
